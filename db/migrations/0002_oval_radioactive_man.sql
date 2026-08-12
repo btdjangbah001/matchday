@@ -1,0 +1,2 @@
+ALTER TABLE "matches" ADD COLUMN "competition" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "uniq_active_application" ON "applications" USING btree ("phone","match_id","type") WHERE status in ('otp_verified','awaiting_review','approved','awaiting_payment','paid','checked_in');
