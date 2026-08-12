@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Matchday — World Cup 2026 Watch-Party Ticketing
 
-## Getting Started
+A serverless ticketing platform for a World Cup watch party. Entry is free;
+**seats**, **parking**, and **vendor** slots are paid. Applicants verify their
+phone with an OTP, then pay via **Eganow** direct checkout. **Vendors** are
+reviewed in the back office first, then receive an **SMS** payment link. Every
+paid applicant gets a **QR pass + check-in code** redeemable at the venue.
 
-First, run the development server:
+Built on **Next.js 16 (App Router)**, **Postgres (Vercel/Neon)** via **Drizzle**,
+deployable to **Vercel**.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Status
+
+Fully wired end-to-end with **mock** SMS and payment providers so it runs with
+no external keys. Eganow and Arkesel are stubbed behind interfaces
+(`lib/payments.ts`, `lib/sms.ts`) — flip a single env var to go live later.
+
+## Setup
+
+1. **Database** — create a Neon / Vercel Postgres database and copy the
+   connection string.
+2. **Env** — copy `.env.example` to `.env` and fill in at least:
+   ```
+   DATABASE_URL=postgresql://...      # your Neon pooled URL
+   SESSION_SECRET=...                 # openssl rand -base64 32
+   APP_BASE_URL=http://localhost:3000
+   SMS_PROVIDER=mock                  # OTPs/links print to the server console
+   PAYMENTS_PROVIDER=mock             # in-app simulated checkout
+   ```
+3. **Install & migrate**
+   ```bash
+   npm install
+   npm run db:migrate     # apply schema
+   npm run db:seed        # sync 2026 schedule + seed staff & sample inventory
+   npm run dev
+   ```
+
+The seed registers two staff phones for back-office login:
+`+233200000001` (admin) and `+233200000002`.
+
+## Going live later
+
+- **SMS (Arkesel):** set `SMS_PROVIDER=arkesel`, `ARKESEL_API_KEY`,
+  `ARKESEL_SENDER`. See `lib/sms.ts`.
+- **Payments (Eganow):** set `PAYMENTS_PROVIDER=eganow` and the `EGANOW_*` vars.
+  Confirm the checkout endpoint/fields and webhook signature scheme against
+  Eganow's docs — placeholders are marked in `lib/payments.ts` and
+  `app/api/payments/eganow/webhook/route.ts`.
+
+## Manual verification (with a database configured)
+
+1. **Schedule + inventory:** sign in at `/backoffice/login` (code prints to the
+   console), open **Matches**, click **Sync schedule**, set a price/capacity for
+   a match's seat row.
+2. **Seat flow:** `/apply/seat` → pick the match, enter a phone → read the OTP
+   from the console → verify → **Pay now (simulate success)** → land on the QR
+   pass with a check-in code.
+3. **Vendor flow:** `/apply/vendor` → verify OTP → status shows *awaiting
+   review* → in **Vendors**, approve → payment-link SMS prints to the console →
+   open it → pay → pass issued.
+4. **Check-in:** `/backoffice/checkin` → type the check-in code (or scan the QR
+   on a `localhost`/HTTPS origin). Confirm it flips to *checked in* and a second
+   attempt is rejected.
+5. **Oversell guard:** set a seat capacity of 1, book it, then try a second
+   booking — checkout returns *just sold out*.
+
+## Project layout
+
+```
+app/                    routes + server actions
+  actions.ts            public flow actions (apply / verify / checkout)
+  apply/ verify/ pay/   applicant journey
+  ticket/[qrToken]/     QR pass
+  checkout/mock/        dev payment simulator
+  api/payments/eganow/  live payment webhook
+  backoffice/           staff: login, dashboard, vendors, check-in, matches
+db/                     schema, client, migrations, seed
+lib/                    otp, session, sms, payments, orders, worldcup, queries
+components/             UI kit + forms + QR scanner
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Known follow-ups
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Real Eganow/Arkesel calls; reservation-hold expiry (abandoned checkouts hold
+inventory until released); OTP rate-limiting; refunds.

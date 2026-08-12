@@ -1,26 +1,49 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f6f7f5;
+  --surface: #ffffff;
+  --foreground: #0d130f;
+  --muted: #5c6b61;
+  --border: rgba(13, 19, 15, 0.1);
+  --brand: #059669;
+  --brand-strong: #047857;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #07100c;
+    --surface: #0e1813;
+    --foreground: #eaf2ec;
+    --muted: #93a59a;
+    --border: rgba(255, 255, 255, 0.1);
+    --brand: #10b981;
+    --brand-strong: #34d399;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Stadium-light gradient used behind the hero. */
+.hero-glow {
+  background:
+    radial-gradient(60% 120% at 15% -10%, color-mix(in oklab, var(--brand) 28%, transparent), transparent 60%),
+    radial-gradient(50% 120% at 100% 0%, color-mix(in oklab, var(--brand) 18%, transparent), transparent 55%);
 }
