@@ -111,50 +111,6 @@ export async function getAvailableMatches(
   return rows.map((r) => ({ ...r, remaining: r.capacity - r.sold }));
 }
 
-export async function getVenueStats() {
-  const [fixtures] = await db
-    .select({
-      onSale: sql<number>`count(distinct ${inventory.matchId})`,
-      competitions: sql<number>`count(distinct ${matches.competition})`,
-      seats: sql<number>`coalesce(max(${inventory.capacity}) filter (where ${inventory.type} = 'seat'), 0)`,
-    })
-    .from(inventory)
-    .innerJoin(matches, eq(inventory.matchId, matches.id))
-    .where(and(gt(inventory.capacity, 0), upcomingMatch()));
-
-  const [vendor] = await db
-    .select({
-      priceMinor: inventory.priceMinor,
-      capacity: inventory.capacity,
-      sold: inventory.sold,
-      seasonName: seasons.name,
-    })
-    .from(inventory)
-    .innerJoin(seasons, eq(inventory.seasonId, seasons.id))
-    .where(
-      and(
-        eq(inventory.type, "vendor"),
-        eq(seasons.active, true),
-        gte(seasons.endsAt, new Date()),
-      ),
-    )
-    .orderBy(asc(seasons.startsAt))
-    .limit(1);
-
-  return {
-    onSale: Number(fixtures?.onSale ?? 0),
-    competitions: Number(fixtures?.competitions ?? 0),
-    seats: Number(fixtures?.seats ?? 0),
-    vendor: vendor
-      ? {
-          seasonName: vendor.seasonName,
-          priceMinor: vendor.priceMinor,
-          remaining: Math.max(vendor.capacity - vendor.sold, 0),
-        }
-      : null,
-  };
-}
-
 export async function getAvailableSeasons() {
   const rows = await db
     .select({
