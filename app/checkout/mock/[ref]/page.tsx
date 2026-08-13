@@ -39,7 +39,7 @@ export default async function MockCheckoutPage({
             {formatMoney(row.payment.amountMinor)}
           </p>
           <p className="mb-6 text-sm text-muted">
-            This stands in for Eganow direct checkout until live keys are added.
+            This stands in for the live payment checkout until keys are added.
           </p>
 
           <div className="space-y-3">
