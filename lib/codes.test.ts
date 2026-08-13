@@ -5,8 +5,6 @@ import {
   normalizeCheckInCode,
 } from "@/lib/codes";
 
-// Check-in codes are read aloud over the phone and typed by gate staff under
-// time pressure, so the alphabet deliberately excludes I, L, O and U.
 const CROCKFORD = /^[0123456789ABCDEFGHJKMNPQRSTVWXYZ]+$/;
 
 describe("generateCheckInCode", () => {
@@ -29,8 +27,6 @@ describe("generateCheckInCode", () => {
     expect(sample).not.toMatch(/[ILOU]/);
   });
 
-  // Collisions would violate the unique constraint on applications.check_in_code
-  // and fail a customer's payment fulfilment, so the space must be sparse.
   it("does not collide across a large sample", () => {
     const codes = new Set(
       Array.from({ length: 5000 }, () => generateCheckInCode()),

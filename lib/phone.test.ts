@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { normalizePhone } from "@/lib/phone";
 
-// Phone normalisation is the identity key for the whole system: OTPs are sent to
-// it, the duplicate-application index is keyed on it, and customers sign in with
-// it. If two spellings of one number normalise differently, a customer can book
-// twice and then fail to find either booking.
 describe("normalizePhone", () => {
   describe("accepts the formats Ghanaian users actually type", () => {
     const accepted: [string, string][] = [

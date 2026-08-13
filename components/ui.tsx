@@ -107,7 +107,6 @@ export function SiteFooter() {
   );
 }
 
-/** Standard page shell for public pages: header, centered content, footer. */
 export function PageShell({
   children,
   width = "narrow",
@@ -288,14 +287,6 @@ export function LinkButton({
   );
 }
 
-/**
- * The canonical fixture card. Both the landing page and /fixtures render this
- * so the same match never looks like two different things in two places.
- *
- * "full" shows per-type availability and every booking route — the browse view.
- * "compact" shows the cheapest price and a single call to action — the teaser
- * used on the landing page, where "All fixtures" carries the rest.
- */
 export function FixtureCard({
   match,
   inventory,
@@ -312,9 +303,7 @@ export function FixtureCard({
     : 0;
 
   return (
-    // Deliberately static: the card isn't clickable as a whole, so a hover lift
-    // here would promise an interaction that doesn't exist. The buttons inside
-    // carry the affordance.
+    // No hover lift: the card isn't clickable, only the buttons inside it.
     <div
       className={`rounded-2xl border border-border bg-surface p-5 shadow-sm ${className}`}
     >

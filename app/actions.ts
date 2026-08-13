@@ -211,8 +211,6 @@ export async function verifyApplicationOtp(
     return { error: messages[result.reason] };
   }
 
-  // Guard against another active application for the same match + type slipping
-  // through (e.g. two unverified attempts from the same number).
   if (
     app.status === "pending_otp" &&
     (await findActiveDuplicate(app.phone, app.matchId, app.type, applicationId))
@@ -228,7 +226,6 @@ export async function verifyApplicationOtp(
     };
   }
 
-  // Vendors go to review; seat/parking go straight to payment.
   const nextStatus = app.type === "vendor" ? "awaiting_review" : "awaiting_payment";
   await db
     .update(applications)
@@ -292,8 +289,6 @@ export async function startCheckout(
     .limit(1);
 
   if (pending) {
-    // Redirect providers (mock, TechUp) stored a checkout URL — send them back
-    // to it; poll providers go to the confirm/poll page.
     if (pending.checkoutUrl) redirect(pending.checkoutUrl);
     redirect(`/pay/${applicationId}/confirm`);
   }
@@ -332,20 +327,12 @@ export async function startCheckout(
     status: "pending",
   });
 
-  // Redirect providers (mock, TechUp) send the user to a hosted checkout; poll
-  // providers push a prompt to the phone, so we route them to the confirm page
-  // where we listen for the callback and let them tap "I've paid".
   if (result.mode === "redirect") {
     redirect(result.checkoutUrl);
   }
   redirect(`/pay/${applicationId}/confirm`);
 }
 
-/**
- * Check the live payment status (used by the MoMo confirm page's polling and
- * its "I've paid" button). Whichever of the callback or this check confirms the
- * payment first wins — fulfilment is idempotent.
- */
 export async function pollPaymentStatus(
   applicationId: string,
 ): Promise<{ status: "paid" | "pending" | "failed"; qrToken?: string }> {
@@ -378,10 +365,7 @@ export async function pollPaymentStatus(
     return { status: "paid", qrToken: updated?.qrToken ?? undefined };
   }
   if (status === "failed") {
-    // Only the caller that wins the pending -> failed transition releases the
-    // held unit. Without this the webhook and this poll could both observe the
-    // same failure and decrement `sold` twice for one reservation, silently
-    // overselling the fixture. See TD-03.
+    // Only the caller that wins the pending -> failed transition releases.
     const [transitioned] = await db
       .update(payments)
       .set({ status: "failed" })

@@ -22,9 +22,6 @@ describe("formatMoney", () => {
   });
 });
 
-// Knockout fixtures arrive from openfootball with placeholder codes before the
-// teams are known. Rendering "W74" to a customer is meaningless, so these are
-// expanded to readable text.
 describe("displayTeam", () => {
   it("expands winner and loser placeholders", () => {
     expect(displayTeam("W74")).toBe("Winner of match 74");
@@ -67,8 +64,6 @@ describe("formatKickoff", () => {
     expect(formatKickoff(null)).toBe("Date TBD");
   });
 
-  // Kickoffs are stored as UTC instants and always displayed in UTC so the
-  // advertised time is the time shown, regardless of the viewer's device clock.
   it("formats a kickoff in UTC", () => {
     const result = formatKickoff(new Date("2026-09-16T19:00:00Z"));
     expect(result).toContain("16");
