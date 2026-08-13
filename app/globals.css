@@ -41,9 +41,75 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Stadium-light gradient used behind the hero. */
+/* Stadium-light gradient used behind the hero. Built from the brand token via
+   color-mix so it reads correctly in both themes without hardcoded colours. */
 .hero-glow {
   background:
     radial-gradient(60% 120% at 15% -10%, color-mix(in oklab, var(--brand) 28%, transparent), transparent 60%),
     radial-gradient(50% 120% at 100% 0%, color-mix(in oklab, var(--brand) 18%, transparent), transparent 55%);
+}
+
+/* One strong ease-out for the whole app. The built-in CSS easings are too weak
+   to read as intentional; this curve starts fast so interactions feel instant. */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* One-shot entrance for above-the-fold content. Stagger siblings by setting
+   --stagger; keep delays short (30-80ms) so the page never feels withheld. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* `backwards`, not `both`: it holds the hidden state through the stagger delay
+   but releases the element afterwards. With `both` the filled final keyframe
+   keeps overriding `transform`, which silently kills any :hover lift. */
+.rise {
+  animation: rise 380ms var(--ease-out) backwards;
+  animation-delay: var(--stagger, 0ms);
+}
+
+/* Hover lift for cards and tappable tiles. Gated below so touch devices — which
+   fire :hover on tap — don't get a stuck lifted state. */
+.lift {
+  transition:
+    transform 200ms var(--ease-out),
+    box-shadow 200ms var(--ease-out),
+    border-color 200ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .lift:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* Reduced motion means fewer and gentler animations, not none. The fade aids
+   comprehension, so it stays; the movement goes. */
+@media (prefers-reduced-motion: reduce) {
+  .rise {
+    animation: fade 200ms var(--ease-out) backwards;
+    animation-delay: 0ms;
+  }
+
+  .lift,
+  .lift:hover {
+    transform: none;
+  }
 }

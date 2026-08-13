@@ -1,6 +1,9 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { SELECTABLE_NETWORKS } from "@/lib/network";
+import { TICKET_TYPE_LABELS } from "@/lib/constants";
+import { displayTeam, formatKickoff, formatMoney } from "@/lib/format";
+import type { Inventory, Match } from "@/db/schema";
 
 export const inputClass =
   "w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30";
@@ -17,9 +20,15 @@ export function Container({
   );
 }
 
+const NAV_LINKS = [
+  { href: "/fixtures", label: "Fixtures" },
+  { href: "/apply/vendor", label: "Vendors" },
+  { href: "/account", label: "My tickets" },
+];
+
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
       <Container className="flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-semibold">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-white">
@@ -27,10 +36,14 @@ export function SiteHeader() {
           </span>
           <span>Matchday</span>
         </Link>
-        <nav className="flex items-center gap-1 text-sm">
-          <HeaderLink href="/apply/seat">Seats</HeaderLink>
-          <HeaderLink href="/apply/parking">Parking</HeaderLink>
-          <HeaderLink href="/apply/vendor">Vendors</HeaderLink>
+
+        {/* Desktop nav */}
+        <nav className="hidden items-center gap-1 text-sm sm:flex">
+          {NAV_LINKS.map((l) => (
+            <HeaderLink key={l.href} href={l.href}>
+              {l.label}
+            </HeaderLink>
+          ))}
           <Link
             href="/backoffice"
             className="ml-1 rounded-lg px-3 py-1.5 text-muted hover:text-foreground"
@@ -38,6 +51,33 @@ export function SiteHeader() {
             Staff
           </Link>
         </nav>
+
+        {/* Mobile menu (JS-free disclosure) */}
+        <details className="relative sm:hidden">
+          <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg border border-border [&::-webkit-details-marker]:hidden">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            <span className="sr-only">Menu</span>
+          </summary>
+          <div className="absolute right-0 top-full mt-2 w-52 rounded-xl border border-border bg-surface p-2 shadow-lg">
+            {NAV_LINKS.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="block rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-foreground/5"
+              >
+                {l.label}
+              </Link>
+            ))}
+            <Link
+              href="/backoffice"
+              className="block rounded-lg px-3 py-2.5 text-sm text-muted hover:bg-foreground/5"
+            >
+              Staff sign in
+            </Link>
+          </div>
+        </details>
       </Container>
     </header>
   );
@@ -90,13 +130,16 @@ export function PageShell({
 export function Card({
   children,
   className = "",
+  style,
 }: {
   children: ReactNode;
   className?: string;
+  style?: CSSProperties;
 }) {
   return (
     <div
       className={`rounded-2xl border border-border bg-surface p-6 shadow-sm ${className}`}
+      style={style}
     >
       {children}
     </div>
@@ -238,9 +281,118 @@ export function LinkButton({
   return (
     <Link
       href={href}
-      className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition ${styles} ${className}`}
+      className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium transition duration-150 ease-out active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:active:scale-100 ${styles} ${className}`}
     >
       {children}
     </Link>
+  );
+}
+
+/**
+ * The canonical fixture card. Both the landing page and /fixtures render this
+ * so the same match never looks like two different things in two places.
+ *
+ * "full" shows per-type availability and every booking route — the browse view.
+ * "compact" shows the cheapest price and a single call to action — the teaser
+ * used on the landing page, where "All fixtures" carries the rest.
+ */
+export function FixtureCard({
+  match,
+  inventory,
+  variant = "full",
+  className = "",
+}: {
+  match: Match;
+  inventory: Inventory[];
+  variant?: "full" | "compact";
+  className?: string;
+}) {
+  const minPrice = inventory.length
+    ? Math.min(...inventory.map((i) => i.priceMinor))
+    : 0;
+
+  return (
+    // Deliberately static: the card isn't clickable as a whole, so a hover lift
+    // here would promise an interaction that doesn't exist. The buttons inside
+    // carry the affordance.
+    <div
+      className={`rounded-2xl border border-border bg-surface p-5 shadow-sm ${className}`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <Badge tone="muted">{match.competition || "Fixture"}</Badge>
+        <span className="text-xs text-muted">{formatKickoff(match.kickoff)}</span>
+      </div>
+
+      <p className="mt-3 text-lg font-semibold">
+        {displayTeam(match.team1)} <span className="text-muted">vs</span>{" "}
+        {displayTeam(match.team2)}
+      </p>
+
+      {inventory.length === 0 ? (
+        <div className="mt-4 border-t border-border pt-4 text-sm text-muted">
+          Not on sale yet.
+        </div>
+      ) : variant === "compact" ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+          <span className="text-sm text-muted">
+            from{" "}
+            <span className="font-semibold text-foreground">
+              {formatMoney(minPrice)}
+            </span>{" "}
+            · {inventory.map((i) => TICKET_TYPE_LABELS[i.type]).join(" · ")}
+          </span>
+          <LinkButton
+            href={`/apply/seat?match=${match.id}`}
+            className="!py-2 text-xs"
+          >
+            Book
+          </LinkButton>
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+            {inventory.map((inv) => {
+              const left = Math.max(inv.capacity - inv.sold, 0);
+              return (
+                <span
+                  key={inv.id}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-foreground/5 px-2.5 py-1 text-xs"
+                >
+                  <span className="font-medium">
+                    {TICKET_TYPE_LABELS[inv.type]}
+                  </span>
+                  <span className="text-muted">{formatMoney(inv.priceMinor)}</span>
+                  <span className={left > 0 ? "text-brand-strong" : "text-red-500"}>
+                    · {left > 0 ? `${left} left` : "sold out"}
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <LinkButton
+              href={`/apply/seat?match=${match.id}`}
+              className="flex-1 !py-2 text-xs"
+            >
+              Get a seat
+            </LinkButton>
+            <LinkButton
+              href={`/apply/parking?match=${match.id}`}
+              variant="ghost"
+              className="flex-1 !py-2 text-xs"
+            >
+              Parking
+            </LinkButton>
+            <LinkButton
+              href={`/apply/vendor?match=${match.id}`}
+              variant="ghost"
+              className="flex-1 !py-2 text-xs"
+            >
+              Vend
+            </LinkButton>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
