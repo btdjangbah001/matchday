@@ -297,7 +297,7 @@ export async function saveInventory(formData: FormData): Promise<void> {
 
   if (
     !Number.isInteger(matchId) ||
-    !["seat", "parking", "vendor"].includes(type) ||
+    !["seat", "parking"].includes(type) ||
     !Number.isFinite(priceCedis) ||
     !Number.isInteger(capacity) ||
     capacity < 0
@@ -310,7 +310,7 @@ export async function saveInventory(formData: FormData): Promise<void> {
     .insert(inventory)
     .values({
       matchId,
-      type: type as "seat" | "parking" | "vendor",
+      type: type as "seat" | "parking",
       priceMinor,
       capacity,
     })
@@ -327,7 +327,7 @@ export async function saveInventory(formData: FormData): Promise<void> {
 export async function applyInventoryToAll(formData: FormData): Promise<void> {
   await requireStaff();
 
-  const types = ["seat", "parking", "vendor"] as const;
+  const types = ["seat", "parking"] as const;
   const competition = String(formData.get("competition") ?? "").trim();
 
   // A competition filter opens that whole
@@ -379,4 +379,76 @@ export async function applyInventoryToAll(formData: FormData): Promise<void> {
 
   revalidatePath("/backoffice/matches");
   revalidatePath("/");
+}
+
+export async function addSeason(formData: FormData): Promise<void> {
+  await requireStaff();
+  const name = String(formData.get("name") ?? "").trim();
+  const startsAt = new Date(String(formData.get("startsAt") ?? ""));
+  const endsAt = new Date(String(formData.get("endsAt") ?? ""));
+
+  if (
+    !name ||
+    Number.isNaN(startsAt.getTime()) ||
+    Number.isNaN(endsAt.getTime()) ||
+    endsAt <= startsAt
+  ) {
+    redirect("/backoffice/seasons");
+  }
+
+  await db
+    .insert(seasons)
+    .values({ name, startsAt, endsAt })
+    .onConflictDoNothing({ target: seasons.name });
+
+  revalidatePath("/backoffice/seasons");
+}
+
+export async function saveVendorPitch(formData: FormData): Promise<void> {
+  await requireStaff();
+  const seasonId = Number(formData.get("seasonId"));
+  const priceCedis = Number(formData.get("price"));
+  const capacity = Number(formData.get("capacity"));
+
+  if (
+    !Number.isInteger(seasonId) ||
+    !Number.isFinite(priceCedis) ||
+    priceCedis < 0 ||
+    !Number.isInteger(capacity) ||
+    capacity < 0
+  ) {
+    redirect("/backoffice/seasons");
+  }
+
+  const priceMinor = Math.round(priceCedis * 100);
+  const [existing] = await db
+    .select({ id: inventory.id })
+    .from(inventory)
+    .where(and(eq(inventory.seasonId, seasonId), eq(inventory.type, "vendor")))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(inventory)
+      .set({ priceMinor, capacity })
+      .where(eq(inventory.id, existing.id));
+  } else {
+    await db
+      .insert(inventory)
+      .values({ seasonId, type: "vendor", priceMinor, capacity });
+  }
+
+  revalidatePath("/backoffice/seasons");
+  revalidatePath("/apply/vendor");
+}
+
+export async function toggleSeason(formData: FormData): Promise<void> {
+  await requireStaff();
+  const id = Number(formData.get("id"));
+  const active = String(formData.get("active")) === "true";
+  if (!Number.isInteger(id)) redirect("/backoffice/seasons");
+
+  await db.update(seasons).set({ active: !active }).where(eq(seasons.id, id));
+  revalidatePath("/backoffice/seasons");
+  revalidatePath("/apply/vendor");
 }
