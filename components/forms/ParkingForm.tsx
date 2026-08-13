@@ -3,19 +3,14 @@
 import { useActionState } from "react";
 import { applyForParking, type FormState } from "@/app/actions";
 import { SubmitButton } from "@/components/SubmitButton";
-import {
-  Field,
-  FormError,
-  MatchSelect,
-  NetworkSelect,
-  inputClass,
-} from "@/components/ui";
+import { Field, FormError, NetworkSelect, inputClass } from "@/components/ui";
+import { MatchPicker, type PickerMatch } from "@/components/forms/MatchPicker";
 
 export function ParkingForm({
   options,
   selectedId,
 }: {
-  options: { value: number; label: string; disabled?: boolean }[];
+  options: PickerMatch[];
   selectedId?: number;
 }) {
   const [state, action] = useActionState<FormState, FormData>(
@@ -26,7 +21,7 @@ export function ParkingForm({
   return (
     <form action={action} className="space-y-4">
       <Field label="Match">
-        <MatchSelect options={options} selectedId={selectedId} />
+        <MatchPicker matches={options} selectedId={selectedId} />
       </Field>
       <Field label="Car registration number">
         <input

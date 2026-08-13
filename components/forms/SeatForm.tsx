@@ -3,19 +3,14 @@
 import { useActionState } from "react";
 import { applyForSeat, type FormState } from "@/app/actions";
 import { SubmitButton } from "@/components/SubmitButton";
-import {
-  Field,
-  FormError,
-  MatchSelect,
-  NetworkSelect,
-  inputClass,
-} from "@/components/ui";
+import { Field, FormError, NetworkSelect, inputClass } from "@/components/ui";
+import { MatchPicker, type PickerMatch } from "@/components/forms/MatchPicker";
 
 export function SeatForm({
   options,
   selectedId,
 }: {
-  options: { value: number; label: string; disabled?: boolean }[];
+  options: PickerMatch[];
   selectedId?: number;
 }) {
   const [state, action] = useActionState<FormState, FormData>(applyForSeat, {});
@@ -23,7 +18,7 @@ export function SeatForm({
   return (
     <form action={action} className="space-y-4">
       <Field label="Match">
-        <MatchSelect options={options} selectedId={selectedId} />
+        <MatchPicker matches={options} selectedId={selectedId} />
       </Field>
       <Field label="Phone number" hint="We'll text you a verification code.">
         <input
