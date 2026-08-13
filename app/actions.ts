@@ -8,8 +8,8 @@ import type { TicketType } from "@/db/schema";
 import { issueOtp, verifyOtp } from "@/lib/otp";
 import {
   markPaymentSucceeded,
-  releaseInventory,
-  reserveInventory,
+  releaseForApplication,
+  reserveForApplication,
 } from "@/lib/orders";
 import { getPaymentProvider } from "@/lib/payments";
 import { CURRENCY, TICKET_TYPE_LABELS } from "@/lib/constants";
@@ -293,7 +293,11 @@ export async function startCheckout(
     redirect(`/pay/${applicationId}/confirm`);
   }
 
-  const reserved = await reserveInventory(app.matchId, app.type);
+  const reserved = await reserveForApplication(
+    applicationId,
+    app.matchId,
+    app.type,
+  );
   if (!reserved) {
     return { error: "Sorry, this option just sold out." };
   }
@@ -314,7 +318,7 @@ export async function startCheckout(
       callbackUrl: `${base}/api/payments/${provider.name}/webhook`,
     });
   } catch (e) {
-    await releaseInventory(app.matchId, app.type);
+    await releaseForApplication(applicationId);
     return { error: (e as Error).message };
   }
 
@@ -372,8 +376,8 @@ export async function pollPaymentStatus(
       .where(and(eq(payments.id, pending.id), eq(payments.status, "pending")))
       .returning({ id: payments.id });
 
-    if (transitioned && app.status === "awaiting_payment") {
-      await releaseInventory(app.matchId, app.type);
+    if (transitioned) {
+      await releaseForApplication(applicationId);
     }
     return { status: "failed" };
   }

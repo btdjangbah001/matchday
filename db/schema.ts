@@ -43,6 +43,12 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "failed",
 ]);
 
+export const reservationStatusEnum = pgEnum("reservation_status", [
+  "held",
+  "released",
+  "consumed",
+]);
+
 export const matches = pgTable("matches", {
   id: serial("id").primaryKey(),
   extId: text("ext_id").notNull().unique(),
@@ -152,6 +158,26 @@ export const payments = pgTable("payments", {
     .defaultNow(),
 });
 
+// A held unit of inventory, tied to the application holding it. Inventory.sold
+// is only ever moved alongside a status change here, so a unit cannot be
+// released twice, and `expires_at` lets abandoned checkouts be swept back.
+export const reservations = pgTable("reservations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  applicationId: uuid("application_id")
+    .notNull()
+    .unique()
+    .references(() => applications.id, { onDelete: "cascade" }),
+  inventoryId: integer("inventory_id")
+    .notNull()
+    .references(() => inventory.id, { onDelete: "cascade" }),
+  status: reservationStatusEnum("status").notNull().default("held"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  releasedAt: timestamp("released_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const competitions = pgTable("competitions", {
   id: serial("id").primaryKey(),
   code: text("code").notNull().unique(),
@@ -175,4 +201,5 @@ export type Inventory = typeof inventory.$inferSelect;
 export type Application = typeof applications.$inferSelect;
 export type Staff = typeof staff.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type Reservation = typeof reservations.$inferSelect;
 export type Competition = typeof competitions.$inferSelect;

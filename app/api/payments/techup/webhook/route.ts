@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { markPaymentSucceeded, releaseInventory } from "@/lib/orders";
+import { markPaymentSucceeded, releaseForApplication } from "@/lib/orders";
 import { parseCallback } from "@/lib/techup";
 import { db } from "@/db";
-import { applications, payments } from "@/db/schema";
+import { payments } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
@@ -50,17 +50,7 @@ export async function POST(request: NextRequest) {
         .returning({ id: payments.id });
 
       if (transitioned) {
-        const [app] = await db
-          .select()
-          .from(applications)
-          .where(
-            and(
-              eq(applications.id, payment.applicationId),
-              eq(applications.status, "awaiting_payment"),
-            ),
-          )
-          .limit(1);
-        if (app) await releaseInventory(app.matchId, app.type);
+        await releaseForApplication(payment.applicationId);
       }
     }
   }

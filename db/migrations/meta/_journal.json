@@ -43,6 +43,13 @@
       "when": 1786552211124,
       "tag": "0005_closed_goliath",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786628371776,
+      "tag": "0006_pink_killer_shrike",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,13 @@
 import "server-only";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { applications, inventory, matches, payments } from "@/db/schema";
+import {
+  applications,
+  inventory,
+  matches,
+  payments,
+  reservations,
+} from "@/db/schema";
 import type { Application, TicketType } from "@/db/schema";
 import { generateCheckInCode, generateQrToken } from "@/lib/codes";
 import { fixtureTitle } from "@/lib/format";
@@ -11,40 +17,170 @@ function baseUrl(): string {
   return process.env.APP_BASE_URL || "http://localhost:3000";
 }
 
-// The `sold < capacity` guard makes this safe under concurrent checkouts.
-export async function reserveInventory(
-  matchId: number,
-  type: TicketType,
-): Promise<{ priceMinor: number } | null> {
-  const [row] = await db
-    .update(inventory)
-    .set({ sold: sql`${inventory.sold} + 1` })
-    .where(
-      and(
-        eq(inventory.matchId, matchId),
-        eq(inventory.type, type),
-        sql`${inventory.sold} < ${inventory.capacity}`,
-      ),
-    )
-    .returning({ priceMinor: inventory.priceMinor });
+// How long a checkout may hold a unit before the sweep takes it back.
+export const HOLD_MINUTES = 20;
 
-  return row ? { priceMinor: row.priceMinor } : null;
-}
-
-export async function releaseInventory(
-  matchId: number,
-  type: TicketType,
-): Promise<void> {
+async function decrementSold(inventoryId: number): Promise<void> {
   await db
     .update(inventory)
     .set({ sold: sql`${inventory.sold} - 1` })
+    .where(and(eq(inventory.id, inventoryId), sql`${inventory.sold} > 0`));
+}
+
+/**
+ * Hold one unit for an application. Returns null when sold out.
+ *
+ * An application holds at most one unit: calling this again for the same
+ * application refreshes the existing hold rather than taking a second.
+ */
+export async function reserveForApplication(
+  applicationId: string,
+  matchId: number,
+  type: TicketType,
+): Promise<{ priceMinor: number } | null> {
+  const [inv] = await db
+    .select()
+    .from(inventory)
+    .where(and(eq(inventory.matchId, matchId), eq(inventory.type, type)))
+    .limit(1);
+  if (!inv) return null;
+
+  const expiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000);
+
+  const [existing] = await db
+    .select()
+    .from(reservations)
+    .where(eq(reservations.applicationId, applicationId))
+    .limit(1);
+
+  if (existing && existing.status !== "released") {
+    await db
+      .update(reservations)
+      .set({ expiresAt })
+      .where(eq(reservations.id, existing.id));
+    return { priceMinor: inv.priceMinor };
+  }
+
+  // Claim capacity first: this guarded UPDATE is the only thing standing
+  // between two concurrent checkouts and an oversell.
+  let [claimed] = await db
+    .update(inventory)
+    .set({ sold: sql`${inventory.sold} + 1` })
+    .where(
+      and(eq(inventory.id, inv.id), sql`${inventory.sold} < ${inventory.capacity}`),
+    )
+    .returning({ priceMinor: inventory.priceMinor });
+
+  // Looks sold out — but some of those units may be abandoned holds. Sweep and
+  // try once more, so a stalled checkout can never block a real sale even if
+  // the scheduled sweep is not running.
+  if (!claimed) {
+    const reclaimed = await sweepExpiredReservations();
+    if (reclaimed === 0) return null;
+
+    [claimed] = await db
+      .update(inventory)
+      .set({ sold: sql`${inventory.sold} + 1` })
+      .where(
+        and(
+          eq(inventory.id, inv.id),
+          sql`${inventory.sold} < ${inventory.capacity}`,
+        ),
+      )
+      .returning({ priceMinor: inventory.priceMinor });
+  }
+  if (!claimed) return null;
+
+  try {
+    if (existing) {
+      await db
+        .update(reservations)
+        .set({
+          status: "held",
+          inventoryId: inv.id,
+          expiresAt,
+          releasedAt: null,
+        })
+        .where(eq(reservations.id, existing.id));
+    } else {
+      await db
+        .insert(reservations)
+        .values({ applicationId, inventoryId: inv.id, expiresAt });
+    }
+  } catch (e) {
+    await decrementSold(inv.id);
+    throw e;
+  }
+
+  return { priceMinor: claimed.priceMinor };
+}
+
+/**
+ * Give back an application's held unit. Safe to call repeatedly and from more
+ * than one path: only the caller that moves the row out of "held" decrements.
+ */
+export async function releaseForApplication(applicationId: string): Promise<void> {
+  const [released] = await db
+    .update(reservations)
+    .set({ status: "released", releasedAt: new Date() })
     .where(
       and(
-        eq(inventory.matchId, matchId),
-        eq(inventory.type, type),
-        sql`${inventory.sold} > 0`,
+        eq(reservations.applicationId, applicationId),
+        eq(reservations.status, "held"),
+      ),
+    )
+    .returning({ inventoryId: reservations.inventoryId });
+
+  if (released) await decrementSold(released.inventoryId);
+}
+
+/** Turn a hold into a sale. The unit stays counted against capacity. */
+export async function consumeReservation(applicationId: string): Promise<void> {
+  await db
+    .update(reservations)
+    .set({ status: "consumed" })
+    .where(
+      and(
+        eq(reservations.applicationId, applicationId),
+        eq(reservations.status, "held"),
       ),
     );
+}
+
+/**
+ * Return capacity held by checkouts that were started and then abandoned.
+ * Without this a customer who closes the payment page removes that unit from
+ * sale permanently, because nothing else observes their disappearance.
+ */
+export async function sweepExpiredReservations(): Promise<number> {
+  const expired = await db
+    .update(reservations)
+    .set({ status: "released", releasedAt: new Date() })
+    .where(
+      and(
+        eq(reservations.status, "held"),
+        lt(reservations.expiresAt, new Date()),
+      ),
+    )
+    .returning({
+      inventoryId: reservations.inventoryId,
+      applicationId: reservations.applicationId,
+    });
+
+  for (const row of expired) {
+    await decrementSold(row.inventoryId);
+    await db
+      .update(applications)
+      .set({ status: "awaiting_payment" })
+      .where(
+        and(
+          eq(applications.id, row.applicationId),
+          eq(applications.status, "awaiting_payment"),
+        ),
+      );
+  }
+
+  return expired.length;
 }
 
 // Idempotent: safe to call repeatedly for the same provider reference.
@@ -72,7 +208,10 @@ export async function markPaymentSucceeded(
     .limit(1);
   if (!app) return null;
 
-  if (app.status === "paid" || app.status === "checked_in") return app;
+  if (app.status === "paid" || app.status === "checked_in") {
+    await consumeReservation(app.id);
+    return app;
+  }
 
   const checkInCode = generateCheckInCode();
   const qrToken = generateQrToken();
@@ -86,6 +225,8 @@ export async function markPaymentSucceeded(
     })
     .where(eq(applications.id, app.id))
     .returning();
+
+  await consumeReservation(app.id);
 
   const [match] = await db
     .select()
