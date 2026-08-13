@@ -8,8 +8,11 @@ export function normalizePhone(raw: string): string | null {
 
   if (n.startsWith("0") && n.length === 10) {
     n = "233" + n.slice(1);
-  } else if (n.length === 9) {
-    // bare subscriber number, e.g. 241234567
+  } else if (n.length === 9 && !n.startsWith("0")) {
+    // Bare subscriber number, e.g. 241234567. A real subscriber number never
+    // starts with 0 — without that guard a 10-digit number missing one digit
+    // ("024123456") would be read as a bare number and silently normalise to
+    // +233024123456, sending the OTP into the void. See DEF-001.
     n = "233" + n;
   }
 
