@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { SELECTABLE_NETWORKS } from "@/lib/network";
+import { Logo } from "@/components/Logo";
 import { TICKET_TYPE_LABELS } from "@/lib/constants";
 import { displayTeam, formatKickoff, formatMoney } from "@/lib/format";
 import type { Inventory, Match } from "@/db/schema";
@@ -30,11 +31,11 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur">
       <Container className="flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-white">
-            ⚽
-          </span>
-          <span>Matchday</span>
+        <Link
+          href="/"
+          className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+        >
+          <Logo />
         </Link>
 
         {/* Desktop nav */}
