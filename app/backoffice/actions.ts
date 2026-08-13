@@ -23,13 +23,10 @@ import { normalizeCheckInCode } from "@/lib/codes";
 import { formatKickoff, scopeTitle } from "@/lib/format";
 import { normalizePhone } from "@/lib/phone";
 import { sendSms } from "@/lib/sms";
+import { vendorPaymentMessage } from "@/lib/links";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function baseUrl(): string {
-  return process.env.APP_BASE_URL || "http://localhost:3000";
-}
 
 export interface LoginState {
   step?: "code";
@@ -116,13 +113,41 @@ export async function approveVendor(formData: FormData): Promise<void> {
     .set({ status: "awaiting_payment" })
     .where(eq(applications.id, id));
 
-  await sendSms(
-    app.phone,
-    `Good news! Your Matchday vendor application is approved. ` +
-      `Pay to confirm your slot: ${baseUrl()}/pay/${id}`,
-  );
+  await sendSms(app.phone, vendorPaymentMessage(id));
 
   revalidatePath("/backoffice/vendors");
+}
+
+export async function resendVendorPaymentLink(
+  _prev: { sent?: boolean; error?: string },
+  formData: FormData,
+): Promise<{ sent?: boolean; error?: string }> {
+  await requireStaff();
+  const id = String(formData.get("applicationId") ?? "");
+
+  const [app] = await db
+    .select()
+    .from(applications)
+    .where(eq(applications.id, id))
+    .limit(1);
+
+  if (!app || app.type !== "vendor") {
+    return { error: "Vendor application not found." };
+  }
+  if (app.status === "paid" || app.status === "checked_in") {
+    return { error: "This vendor has already paid." };
+  }
+  if (app.status !== "awaiting_payment") {
+    return { error: `Not awaiting payment (status: ${app.status}).` };
+  }
+
+  const result = await sendSms(app.phone, vendorPaymentMessage(id));
+  if (!result.ok) {
+    return { error: result.error ?? "Could not send the text right now." };
+  }
+
+  revalidatePath("/backoffice/vendors");
+  return { sent: true };
 }
 
 export async function rejectVendor(formData: FormData): Promise<void> {
