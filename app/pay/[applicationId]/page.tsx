@@ -1,5 +1,5 @@
-import { notFound, redirect } from "next/navigation";
-import { Card, PageShell, StatusPill } from "@/components/ui";
+import { redirect } from "next/navigation";
+import { Card, LinkButton, NotFoundScreen, PageShell, StatusPill } from "@/components/ui";
 import { PayButton } from "@/components/forms/PayButton";
 import { getApplicationWithMatch } from "@/lib/queries";
 import { formatMoney, scopeSubtitle, scopeTitle } from "@/lib/format";
@@ -7,6 +7,7 @@ import { TICKET_TYPE_LABELS } from "@/lib/constants";
 import { isMockPayments } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
+export const metadata = { robots: { index: false, follow: false } };
 
 export default async function PayPage({
   params,
@@ -15,7 +16,19 @@ export default async function PayPage({
 }) {
   const { applicationId } = await params;
   const row = await getApplicationWithMatch(applicationId);
-  if (!row) notFound();
+  if (!row) {
+    return (
+      <NotFoundScreen
+        title="We couldn't find that booking"
+        message="This payment link doesn't match a booking we hold. Check the link in your text message, or sign in with your phone number to see everything booked on it."
+      >
+        <LinkButton href="/account">Find my bookings</LinkButton>
+        <LinkButton href="/fixtures" variant="ghost">
+          Browse fixtures
+        </LinkButton>
+      </NotFoundScreen>
+    );
+  }
   const { application: app, match, season } = row;
 
   if (app.status === "pending_otp") redirect(`/verify/${applicationId}`);

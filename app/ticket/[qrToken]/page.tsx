@@ -1,11 +1,11 @@
-import { notFound } from "next/navigation";
 import QRCode from "qrcode";
-import { Card, PageShell, StatusPill } from "@/components/ui";
+import { Card, LinkButton, NotFoundScreen, PageShell, StatusPill } from "@/components/ui";
 import { getApplicationByQrToken } from "@/lib/queries";
 import { scopeSubtitle, scopeTitle } from "@/lib/format";
 import { TICKET_TYPE_LABELS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
+export const metadata = { robots: { index: false, follow: false } };
 
 export default async function TicketPage({
   params,
@@ -14,7 +14,19 @@ export default async function TicketPage({
 }) {
   const { qrToken } = await params;
   const row = await getApplicationByQrToken(qrToken);
-  if (!row) notFound();
+  if (!row) {
+    return (
+      <NotFoundScreen
+        title="We couldn't find that pass"
+        message="This pass link isn't one we recognise. Passes are only issued once payment clears — if you've paid, sign in with your phone number to find yours."
+      >
+        <LinkButton href="/account">Find my pass</LinkButton>
+        <LinkButton href="/" variant="ghost">
+          Back to home
+        </LinkButton>
+      </NotFoundScreen>
+    );
+  }
   const { application: app, match, season } = row;
 
   const qrDataUrl = await QRCode.toDataURL(qrToken, { width: 320, margin: 1 });

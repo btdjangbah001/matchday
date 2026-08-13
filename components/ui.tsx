@@ -127,6 +127,35 @@ export function PageShell({
   );
 }
 
+export function NotFoundScreen({
+  code = "404",
+  title,
+  message,
+  children,
+}: {
+  code?: string;
+  title: string;
+  message: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <PageShell>
+      <div className="py-12 text-center">
+        <p className="text-sm font-semibold uppercase tracking-widest text-brand-strong">
+          {code}
+        </p>
+        <h1 className="mt-3 text-3xl font-bold tracking-tight">{title}</h1>
+        <p className="mx-auto mt-3 max-w-md text-muted">{message}</p>
+        {children ? (
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            {children}
+          </div>
+        ) : null}
+      </div>
+    </PageShell>
+  );
+}
+
 export function Card({
   children,
   className = "",
