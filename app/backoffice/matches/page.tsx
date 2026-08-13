@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { requireStaff } from "@/lib/session";
-import { getMatchesWithInventory } from "@/lib/queries";
+import { getActiveCompetitionNames, getMatchesWithInventory } from "@/lib/queries";
 import {
   applyInventoryToAll,
   saveInventory,
@@ -9,7 +9,6 @@ import {
 } from "@/app/backoffice/actions";
 import { fixtureTitle, formatKickoff } from "@/lib/format";
 import { TICKET_TYPE_LABELS } from "@/lib/constants";
-import { COMPETITIONS } from "@/lib/competitions";
 import { inputClass } from "@/components/ui";
 import type { Inventory, TicketType } from "@/db/schema";
 
@@ -83,7 +82,10 @@ export default async function MatchesPage({
 }) {
   await requireStaff();
   const { competition } = await searchParams;
-  const rows = await getMatchesWithInventory({ competition });
+  const [rows, competitionNames] = await Promise.all([
+    getMatchesWithInventory({ competition }),
+    getActiveCompetitionNames(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -109,9 +111,9 @@ export default async function MatchesPage({
             className={`mt-1 ${inputClass}`}
           >
             <option value="">All competitions</option>
-            {COMPETITIONS.map((c) => (
-              <option key={c.code} value={c.name}>
-                {c.name}
+            {competitionNames.map((n) => (
+              <option key={n} value={n}>
+                {n}
               </option>
             ))}
           </select>

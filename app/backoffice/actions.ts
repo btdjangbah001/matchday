@@ -4,14 +4,14 @@ import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { applications, inventory, matches, staff } from "@/db/schema";
+import { applications, competitions, inventory, matches, staff } from "@/db/schema";
 import { issueOtp, verifyOtp } from "@/lib/otp";
 import {
   createStaffSession,
   destroyStaffSession,
   requireStaff,
 } from "@/lib/session";
-import { syncSchedules } from "@/lib/schedule";
+import { syncCompetitionById, syncSchedules } from "@/lib/schedule";
 import { normalizeCheckInCode } from "@/lib/codes";
 import { fixtureTitle, formatKickoff } from "@/lib/format";
 import { normalizePhone } from "@/lib/phone";
@@ -227,7 +227,61 @@ export async function syncSchedule(): Promise<void> {
   await requireStaff();
   await syncSchedules();
   revalidatePath("/backoffice/matches");
+  revalidatePath("/backoffice/competitions");
   revalidatePath("/");
+}
+
+// ---------- Competition (data source) management ----------
+
+export async function addCompetition(formData: FormData): Promise<void> {
+  await requireStaff();
+  const code = String(formData.get("code") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const sourceKind = String(formData.get("sourceKind") ?? "").trim();
+  const repo = String(formData.get("repo") ?? "").trim();
+  const season = String(formData.get("season") ?? "").trim();
+  const file = String(formData.get("file") ?? "").trim();
+
+  if (
+    !code || !name || !repo || !season || !file ||
+    !["json", "txt"].includes(sourceKind)
+  ) {
+    redirect("/backoffice/competitions?error=invalid");
+  }
+
+  await db
+    .insert(competitions)
+    .values({ code, name, sourceKind, repo, season, file })
+    .onConflictDoNothing({ target: competitions.code });
+
+  revalidatePath("/backoffice/competitions");
+}
+
+export async function syncOneCompetition(formData: FormData): Promise<void> {
+  await requireStaff();
+  const id = Number(formData.get("id"));
+  if (Number.isInteger(id)) await syncCompetitionById(id);
+  revalidatePath("/backoffice/competitions");
+  revalidatePath("/backoffice/matches");
+  revalidatePath("/");
+}
+
+export async function toggleCompetition(formData: FormData): Promise<void> {
+  await requireStaff();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) redirect("/backoffice/competitions");
+  const [c] = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.id, id))
+    .limit(1);
+  if (c) {
+    await db
+      .update(competitions)
+      .set({ active: !c.active })
+      .where(eq(competitions.id, id));
+  }
+  revalidatePath("/backoffice/competitions");
 }
 
 export async function saveInventory(formData: FormData): Promise<void> {

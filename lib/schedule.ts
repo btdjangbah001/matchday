@@ -1,7 +1,7 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { matches } from "@/db/schema";
-import { COMPETITIONS, sourceUrl, type Competition } from "@/lib/competitions";
+import { competitions, matches, type Competition } from "@/db/schema";
+import { sourceUrl } from "@/lib/competitions";
 
 /** A fixture normalised from either source before it becomes a DB row. */
 interface NormalizedMatch {
@@ -42,11 +42,14 @@ const MONTHS: Record<string, number> = {
 const ROUND_RE = /^[»▪●•]\s*(.+?)\s*$/;
 // Date line, e.g. "Tue Sep 16 2025" or "Wed Sep 17".
 const DATE_RE = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+([A-Z][a-z]{2})\s+(\d{1,2})(?:\s+(\d{4}))?$/;
-// Match line: optional time, "Team1 (CC) v Team2 (CC)" then optional score.
-const MATCH_RE = /^(?:(\d{1,2}:\d{2})\s+)?(.+?\([A-Z]{3}\))\s+v\.?\s+(.+?\([A-Z]{3}\))(?:\s+.*)?$/;
+// Match line: optional time, then "Team1 v Team2" (+ optional (CC) codes / score).
+// Handles both league files ("Arsenal FC  v  Coventry City FC") and cup files
+// ("Athletic Club (ESP)  v Arsenal FC (ENG)  0-2 (0-0)").
+const MATCH_RE = /^(?:(\d{1,2}:\d{2})\s+)?(.+?)\s+v\.?\s+(.+)$/;
 
-function stripCountry(name: string): string {
-  return name.replace(/\s*\([A-Z]{3}\)\s*$/, "").trim();
+// Drop a trailing score (starts after 2+ spaces with a digit) and any (CC) code.
+function cleanTeam(raw: string): string {
+  return raw.split(/\s{2,}(?=\d)/)[0].replace(/\s*\([A-Z]{3}\)\s*$/, "").trim();
 }
 
 export function parseOpenfootballText(text: string): NormalizedMatch[] {
@@ -85,14 +88,13 @@ export function parseOpenfootballText(text: string): NormalizedMatch[] {
 
     const matchMatch = MATCH_RE.exec(line);
     if (matchMatch && date) {
-      if (matchMatch[1]) time = matchMatch[1];
-      out.push({
-        round,
-        date,
-        time,
-        team1: stripCountry(matchMatch[2]),
-        team2: stripCountry(matchMatch[3]),
-      });
+      const team1 = cleanTeam(matchMatch[2]);
+      const team2 = cleanTeam(matchMatch[3]);
+      // Skip lines that aren't real fixtures (e.g. notes, scores).
+      if (team1 && team2 && !/^\d/.test(team1) && !/^\d/.test(team2)) {
+        if (matchMatch[1]) time = matchMatch[1];
+        out.push({ round, date, time, team1, team2 });
+      }
     }
   }
   return out;
@@ -118,87 +120,88 @@ function parseKickoff(date: string | null, time: string | null): Date | null {
   return new Date(Date.UTC(y, mo - 1, d, Number(tm[1]) - offset, Number(tm[2])));
 }
 
-/**
- * DEMO AFFORDANCE (disclosed in Limitations): if an entire synced season is
- * already in the past — e.g. openfootball hasn't published the new season yet —
- * roll every kickoff forward by whole years so upcoming fixtures exist to book.
- * With live current-season data this is a no-op. Disable with
- * SCHEDULE_SHIFT_PAST_SEASONS=false. The ext_id is keyed on the ORIGINAL date,
- * so a later re-sync updates rows in place rather than duplicating them.
- */
-function shiftPastSeasonToUpcoming(rows: (typeof matches.$inferInsert)[]): void {
-  if (process.env.SCHEDULE_SHIFT_PAST_SEASONS === "false") return;
-  const times = rows
-    .map((r) => r.kickoff?.getTime())
-    .filter((t): t is number => typeof t === "number");
-  if (times.length === 0) return;
-  const now = Date.now();
-  const latest = Math.max(...times);
-  if (latest >= now) return;
-
-  const years = Math.ceil((now - latest) / (365.25 * 86_400_000));
-  for (const r of rows) {
-    if (r.kickoff) {
-      const d = new Date(r.kickoff);
-      d.setUTCFullYear(d.getUTCFullYear() + years);
-      r.kickoff = d;
-    }
-  }
-}
-
 // ---------- Sync ----------
 
-async function syncCompetition(comp: Competition): Promise<number> {
-  const res = await fetch(sourceUrl(comp.source), { cache: "no-store" });
-  if (!res.ok) return 0; // not published yet — skip
+/**
+ * Sync one competition from its openfootball source. Real dates are stored as-is
+ * (no shifting) — if a season isn't published or is over, no upcoming fixtures
+ * result, which is the honest outcome. Records the sync time + fixture count.
+ */
+export async function syncCompetition(comp: Competition): Promise<number> {
+  let count = 0;
+  const res = await fetch(sourceUrl(comp.repo, comp.season, comp.file), {
+    cache: "no-store",
+  });
 
-  const normalized =
-    comp.source.kind === "json"
-      ? parseFootballJson(await res.json())
-      : parseOpenfootballText(await res.text());
+  if (res.ok) {
+    const normalized =
+      comp.sourceKind === "json"
+        ? parseFootballJson(await res.json())
+        : parseOpenfootballText(await res.text());
 
-  const rows: (typeof matches.$inferInsert)[] = normalized.map((m) => ({
-    // Stable per-competition key on the ORIGINAL date; teams are known in play.
-    extId: `${comp.code}-${slug(`${m.date ?? ""}-${m.team1}-${m.team2}`)}`,
-    competition: comp.name,
-    round: m.round,
-    groupName: null,
-    team1: m.team1,
-    team2: m.team2,
-    kickoff: parseKickoff(m.date, m.time),
-    venue: null,
-  }));
-  if (rows.length === 0) return 0;
+    const rows: (typeof matches.$inferInsert)[] = normalized.map((m) => ({
+      extId: `${comp.code}-${slug(`${m.date ?? ""}-${m.team1}-${m.team2}`)}`,
+      competition: comp.name,
+      round: m.round,
+      groupName: null,
+      team1: m.team1,
+      team2: m.team2,
+      kickoff: parseKickoff(m.date, m.time),
+      venue: null,
+    }));
+    count = rows.length;
 
-  shiftPastSeasonToUpcoming(rows);
+    if (rows.length > 0) {
+      await db
+        .insert(matches)
+        .values(rows)
+        .onConflictDoUpdate({
+          target: matches.extId,
+          set: {
+            competition: sql`excluded.competition`,
+            round: sql`excluded.round`,
+            team1: sql`excluded.team1`,
+            team2: sql`excluded.team2`,
+            kickoff: sql`excluded.kickoff`,
+          },
+        });
+    }
+  }
 
   await db
-    .insert(matches)
-    .values(rows)
-    .onConflictDoUpdate({
-      target: matches.extId,
-      set: {
-        competition: sql`excluded.competition`,
-        round: sql`excluded.round`,
-        team1: sql`excluded.team1`,
-        team2: sql`excluded.team2`,
-        kickoff: sql`excluded.kickoff`,
-      },
-    });
-  return rows.length;
+    .update(competitions)
+    .set({ lastSyncedAt: new Date(), lastCount: count })
+    .where(eq(competitions.id, comp.id));
+  return count;
 }
 
-/** Sync every configured competition. Missing/unpublished ones are skipped. */
+/** Sync one competition by id (used by the admin "Sync" button). */
+export async function syncCompetitionById(id: number): Promise<number> {
+  const [comp] = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.id, id))
+    .limit(1);
+  if (!comp) return 0;
+  return syncCompetition(comp);
+}
+
+/** Sync every active competition. */
 export async function syncSchedules(): Promise<{
   synced: number;
   competitions: number;
 }> {
+  const comps = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.active, true));
+
   let synced = 0;
-  let competitions = 0;
-  for (const comp of COMPETITIONS) {
+  let withData = 0;
+  for (const comp of comps) {
     const n = await syncCompetition(comp);
-    if (n > 0) competitions += 1;
+    if (n > 0) withData += 1;
     synced += n;
   }
-  return { synced, competitions };
+  return { synced, competitions: withData };
 }

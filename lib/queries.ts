@@ -14,8 +14,42 @@ import {
   sql,
 } from "drizzle-orm";
 import { db } from "@/db";
-import { applications, inventory, matches } from "@/db/schema";
+import { applications, competitions, inventory, matches } from "@/db/schema";
 import type { ApplicationStatus, TicketType } from "@/db/schema";
+import { isUuid } from "@/lib/uuid";
+
+/** Competitions with their fixture counts, for the admin competitions page. */
+export async function getCompetitionAdminList() {
+  const comps = await db
+    .select()
+    .from(competitions)
+    .orderBy(asc(competitions.name));
+  const counts = await db
+    .select({
+      competition: matches.competition,
+      total: sql<number>`count(*)`,
+      upcoming: sql<number>`count(*) filter (where ${matches.kickoff} >= now())`,
+    })
+    .from(matches)
+    .groupBy(matches.competition);
+  const byName = new Map(counts.map((c) => [c.competition, c]));
+
+  return comps.map((c) => ({
+    competition: c,
+    total: Number(byName.get(c.name)?.total ?? 0),
+    upcoming: Number(byName.get(c.name)?.upcoming ?? 0),
+  }));
+}
+
+/** Active competition names, for public + back-office filter dropdowns. */
+export async function getActiveCompetitionNames(): Promise<string[]> {
+  const rows = await db
+    .select({ name: competitions.name })
+    .from(competitions)
+    .where(eq(competitions.active, true))
+    .orderBy(asc(competitions.name));
+  return rows.map((r) => r.name);
+}
 
 // Statuses that represent confirmed, paid attendees.
 const CONFIRMED = ["paid", "checked_in"] as const;
@@ -89,7 +123,44 @@ export async function getScreenedMatches(limit = 8) {
   }));
 }
 
+/**
+ * Browse the whole upcoming schedule, filterable by competition + team. Each
+ * fixture carries its inventory (empty if the centre hasn't put it on sale yet).
+ */
+export async function getFixtures(opts: {
+  competition?: string;
+  q?: string;
+  limit?: number;
+}) {
+  const conds = [upcomingMatch()];
+  if (opts.competition) conds.push(eq(matches.competition, opts.competition));
+  if (opts.q) {
+    const like = `%${opts.q}%`;
+    conds.push(or(ilike(matches.team1, like), ilike(matches.team2, like))!);
+  }
+
+  const ms = await db
+    .select()
+    .from(matches)
+    .where(and(...conds))
+    .orderBy(asc(matches.kickoff), asc(matches.id))
+    .limit(opts.limit ?? 120);
+  if (ms.length === 0) return [];
+
+  const ids = ms.map((m) => m.id);
+  const invRows = await db
+    .select()
+    .from(inventory)
+    .where(inArray(inventory.matchId, ids));
+
+  return ms.map((m) => ({
+    match: m,
+    inventory: invRows.filter((i) => i.matchId === m.id),
+  }));
+}
+
 export async function getApplication(id: string) {
+  if (!isUuid(id)) return null;
   const [app] = await db
     .select()
     .from(applications)
@@ -99,6 +170,7 @@ export async function getApplication(id: string) {
 }
 
 export async function getApplicationWithMatch(id: string) {
+  if (!isUuid(id)) return null;
   const [row] = await db
     .select({ application: applications, match: matches })
     .from(applications)
@@ -109,6 +181,7 @@ export async function getApplicationWithMatch(id: string) {
 }
 
 export async function getApplicationByQrToken(qrToken: string) {
+  if (!isUuid(qrToken)) return null;
   const [row] = await db
     .select({ application: applications, match: matches })
     .from(applications)
@@ -338,6 +411,16 @@ export async function getApplicationPipeline() {
     rejected: Number(row?.rejected ?? 0),
     total: Number(row?.total ?? 0),
   };
+}
+
+/** Every application tied to a phone number — powers the customer account. */
+export async function getApplicationsByPhone(phone: string) {
+  return db
+    .select({ application: applications, match: matches })
+    .from(applications)
+    .innerJoin(matches, eq(applications.matchId, matches.id))
+    .where(eq(applications.phone, phone))
+    .orderBy(desc(applications.createdAt));
 }
 
 /** Searchable/filterable list of applications for the back office. */
