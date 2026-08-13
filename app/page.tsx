@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Badge,
   Card,
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui";
 import { getScreenedMatches, getVenueStats } from "@/lib/queries";
 import { displayTeam, formatKickoff, formatMoney } from "@/lib/format";
-import { VENUE } from "@/lib/venue";
+import { PHOTO_CREDITS, VENUE } from "@/lib/venue";
 import type { Inventory, Match } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -206,6 +207,41 @@ export default async function Home() {
               A room built for watching football with other people, rather than
               a bar with a television in the corner.
             </p>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="relative aspect-[3/2] overflow-hidden rounded-2xl border border-border sm:col-span-2 sm:aspect-[2/1]">
+                <Image
+                  src="/images/crowd-watching.jpg"
+                  alt="A packed street café at night, every chair turned towards a screen showing a live football match"
+                  fill
+                  priority
+                  sizes="(min-width: 640px) 66vw, 100vw"
+                  className="object-cover"
+                />
+              </div>
+              <div className="relative aspect-[3/2] overflow-hidden rounded-2xl border border-border sm:aspect-auto">
+                <Image
+                  src="/images/supporters.jpg"
+                  alt="Three supporters in club shirts watching a match together"
+                  fill
+                  sizes="(min-width: 640px) 33vw, 100vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-border sm:col-span-3 sm:aspect-[32/9]">
+                <Image
+                  src="/images/big-screen.jpg"
+                  alt="A full auditorium of seated people, all facing one large screen"
+                  fill
+                  sizes="100vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {VENUE.facilities.map((f) => (
                 <div
@@ -312,6 +348,26 @@ export default async function Home() {
                 </p>
               </div>
             </div>
+
+            <p className="mt-8 text-xs text-muted">
+              Photographs by{" "}
+              {PHOTO_CREDITS.map((c, i) => (
+                <span key={c.url}>
+                  <a href={c.url} className="hover:text-foreground hover:underline">
+                    {c.name}
+                  </a>
+                  {i < PHOTO_CREDITS.length - 1 ? ", " : ""}
+                </span>
+              ))}{" "}
+              on{" "}
+              <a
+                href="https://unsplash.com"
+                className="hover:text-foreground hover:underline"
+              >
+                Unsplash
+              </a>
+              . They show other venues, not ours.
+            </p>
           </section>
         </Container>
       </main>

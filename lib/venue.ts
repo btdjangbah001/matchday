@@ -1,3 +1,9 @@
+export const PHOTO_CREDITS = [
+  { name: "Fatih Beki", url: "https://unsplash.com/@mfbeki" },
+  { name: "Christian Agbede", url: "https://unsplash.com/@chriscreations__" },
+  { name: "Krists Luhaers", url: "https://unsplash.com/@kristsll" },
+] as const;
+
 export const VENUE = {
   name: "Matchday Watch Centre",
   addressLines: ["PLACEHOLDER — street address", "PLACEHOLDER — city"],
