@@ -3,6 +3,8 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { requireStaff } from "@/lib/session";
 import { getReviewedVendors, getVendorsAwaitingReview } from "@/lib/queries";
 import { approveVendor, rejectVendor } from "@/app/backoffice/actions";
+import { vendorPaymentLink } from "@/lib/links";
+import { ResendPaymentLink } from "@/components/forms/ResendPaymentLink";
 import { formatMoney, scopeSubtitle, scopeTitle } from "@/lib/format";
 import type { Application, Season } from "@/db/schema";
 
@@ -103,24 +105,29 @@ export default async function VendorsPage() {
                 </div>
                 <ul className="divide-y divide-border">
                   {apps.map((app) => (
-                    <li
-                      key={app.id}
-                      className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
-                    >
-                      <span>
-                        <span className="font-medium">
-                          {app.firstName} {app.lastName}
-                        </span>{" "}
-                        <span className="text-muted">
-                          · {app.vendorType} · {app.phone}
+                    <li key={app.id} className="py-2 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span>
+                          <span className="font-medium">
+                            {app.firstName} {app.lastName}
+                          </span>{" "}
+                          <span className="text-muted">
+                            · {app.vendorType} · {app.phone}
+                          </span>
                         </span>
-                      </span>
-                      <span className="flex items-center gap-3">
-                        <span className="text-muted">
-                          {formatMoney(app.amountMinor)}
+                        <span className="flex items-center gap-3">
+                          <span className="text-muted">
+                            {formatMoney(app.amountMinor)}
+                          </span>
+                          <StatusPill status={app.status} />
                         </span>
-                        <StatusPill status={app.status} />
-                      </span>
+                      </div>
+                      {app.status === "awaiting_payment" && (
+                        <ResendPaymentLink
+                          applicationId={app.id}
+                          link={vendorPaymentLink(app.id)}
+                        />
+                      )}
                     </li>
                   ))}
                 </ul>
