@@ -15,12 +15,13 @@ import type { TicketType } from "@/db/schema";
 // deletes rows reachable from one.
 export const FIXTURE_PREFIX = "itest-";
 
-// +23390... is not an allocated Ghanaian range, so it cannot collide.
+// +2339... is not an allocated Ghanaian range, so it cannot collide with a
+// real number, and it satisfies the +233 plus nine digits format.
 export function testPhone(): string {
-  const n = Math.floor(Math.random() * 1_000_000)
+  const n = Math.floor(Math.random() * 100_000_000)
     .toString()
-    .padStart(6, "0");
-  return `+23390${n}`;
+    .padStart(8, "0");
+  return `+2339${n}`;
 }
 
 export interface Fixture {
@@ -131,8 +132,9 @@ export async function forceOtpCode(
 // Server actions signal navigation by throwing; return the destination so a
 // test can read the new id out of it.
 export async function catchRedirect(fn: () => Promise<unknown>): Promise<string> {
+  let returned: unknown;
   try {
-    await fn();
+    returned = await fn();
   } catch (e) {
     const digest = (e as { digest?: string }).digest;
     if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) {
@@ -140,7 +142,9 @@ export async function catchRedirect(fn: () => Promise<unknown>): Promise<string>
     }
     throw e;
   }
-  throw new Error("expected a redirect, but the action returned normally");
+  throw new Error(
+    `expected a redirect, but the action returned ${JSON.stringify(returned)}`,
+  );
 }
 
 export function formData(fields: Record<string, string | number>): FormData {

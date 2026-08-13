@@ -1,7 +1,7 @@
 import { Card, StatusPill, inputClass } from "@/components/ui";
 import { requireStaff } from "@/lib/session";
 import { getApplicationsList } from "@/lib/queries";
-import { fixtureTitle, formatKickoff, formatMoney } from "@/lib/format";
+import { formatMoney, scopeSubtitle, scopeTitle } from "@/lib/format";
 import { TICKET_TYPE_LABELS } from "@/lib/constants";
 import type { ApplicationStatus, TicketType } from "@/db/schema";
 
@@ -107,7 +107,7 @@ export default async function ApplicationsPage({
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ application: a, match }) => (
+                {rows.map(({ application: a, match, season }) => (
                   <tr key={a.id} className="border-t border-border">
                     <td className="px-4 py-3">
                       <div className="font-medium">
@@ -118,9 +118,9 @@ export default async function ApplicationsPage({
                     </td>
                     <td className="px-3 py-3">{TICKET_TYPE_LABELS[a.type]}</td>
                     <td className="px-3 py-3">
-                      <div>{fixtureTitle(match.team1, match.team2)}</div>
+                      <div>{scopeTitle(match, season)}</div>
                       <div className="text-xs text-muted">
-                        {formatKickoff(match.kickoff)}
+                        {scopeSubtitle(match, season)}
                       </div>
                     </td>
                     <td className="px-3 py-3 text-muted">

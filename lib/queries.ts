@@ -8,13 +8,20 @@ import {
   gte,
   ilike,
   inArray,
+  isNotNull,
   isNull,
   lte,
   or,
   sql,
 } from "drizzle-orm";
 import { db } from "@/db";
-import { applications, competitions, inventory, matches } from "@/db/schema";
+import {
+  applications,
+  competitions,
+  inventory,
+  matches,
+  seasons,
+} from "@/db/schema";
 import type { ApplicationStatus, TicketType } from "@/db/schema";
 import { isUuid } from "@/lib/uuid";
 
@@ -91,8 +98,41 @@ export async function getAvailableMatches(
     })
     .from(inventory)
     .innerJoin(matches, eq(inventory.matchId, matches.id))
-    .where(and(eq(inventory.type, type), gt(inventory.capacity, 0), upcomingMatch()))
+    .where(
+      and(
+        eq(inventory.type, type),
+        gt(inventory.capacity, 0),
+        isNotNull(inventory.matchId),
+        upcomingMatch(),
+      ),
+    )
     .orderBy(asc(matches.kickoff), asc(matches.id));
+
+  return rows.map((r) => ({ ...r, remaining: r.capacity - r.sold }));
+}
+
+export async function getAvailableSeasons() {
+  const rows = await db
+    .select({
+      id: seasons.id,
+      name: seasons.name,
+      startsAt: seasons.startsAt,
+      endsAt: seasons.endsAt,
+      priceMinor: inventory.priceMinor,
+      capacity: inventory.capacity,
+      sold: inventory.sold,
+    })
+    .from(inventory)
+    .innerJoin(seasons, eq(inventory.seasonId, seasons.id))
+    .where(
+      and(
+        eq(inventory.type, "vendor"),
+        gt(inventory.capacity, 0),
+        eq(seasons.active, true),
+        gte(seasons.endsAt, new Date()),
+      ),
+    )
+    .orderBy(asc(seasons.startsAt));
 
   return rows.map((r) => ({ ...r, remaining: r.capacity - r.sold }));
 }
@@ -101,8 +141,8 @@ export async function getScreenedMatches(limit = 8) {
   const invRows = await db
     .select()
     .from(inventory)
-    .where(gt(inventory.capacity, 0));
-  const ids = [...new Set(invRows.map((i) => i.matchId))];
+    .where(and(gt(inventory.capacity, 0), isNotNull(inventory.matchId)));
+  const ids = [...new Set(invRows.map((i) => i.matchId!))];
   if (ids.length === 0) return [];
 
   const ms = await db
@@ -163,9 +203,10 @@ export async function getApplication(id: string) {
 export async function getApplicationWithMatch(id: string) {
   if (!isUuid(id)) return null;
   const [row] = await db
-    .select({ application: applications, match: matches })
+    .select({ application: applications, match: matches, season: seasons })
     .from(applications)
-    .innerJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(seasons, eq(applications.seasonId, seasons.id))
     .where(eq(applications.id, id))
     .limit(1);
   return row ?? null;
@@ -174,9 +215,10 @@ export async function getApplicationWithMatch(id: string) {
 export async function getApplicationByQrToken(qrToken: string) {
   if (!isUuid(qrToken)) return null;
   const [row] = await db
-    .select({ application: applications, match: matches })
+    .select({ application: applications, match: matches, season: seasons })
     .from(applications)
-    .innerJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(seasons, eq(applications.seasonId, seasons.id))
     .where(eq(applications.qrToken, qrToken))
     .limit(1);
   return row ?? null;
@@ -184,9 +226,10 @@ export async function getApplicationByQrToken(qrToken: string) {
 
 export async function getVendorsAwaitingReview() {
   return db
-    .select({ application: applications, match: matches })
+    .select({ application: applications, match: matches, season: seasons })
     .from(applications)
-    .innerJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(seasons, eq(applications.seasonId, seasons.id))
     .where(
       and(
         eq(applications.type, "vendor"),
@@ -249,18 +292,23 @@ export async function getMatchBreakdown() {
       revenueMinor: sql<number>`coalesce(sum(${applications.amountMinor}), 0)`,
     })
     .from(applications)
-    .where(inArray(applications.status, [...CONFIRMED]))
+    .where(
+      and(
+        inArray(applications.status, [...CONFIRMED]),
+        isNotNull(applications.matchId),
+      ),
+    )
     .groupBy(applications.matchId);
 
   if (agg.length === 0) return [];
 
-  const ids = agg.map((a) => a.matchId);
+  const ids = agg.map((a) => a.matchId!);
   const ms = await db.select().from(matches).where(inArray(matches.id, ids));
   const byId = new Map(ms.map((m) => [m.id, m]));
 
   return agg
     .flatMap((a) => {
-      const match = byId.get(a.matchId);
+      const match = byId.get(a.matchId!);
       if (!match) return [];
       return [
         {
@@ -306,7 +354,9 @@ export async function getMatchesWithInventory({
   horizonDays = 14,
 }: { competition?: string; horizonDays?: number } = {}) {
   const invRows = await db.select().from(inventory);
-  const configuredIds = [...new Set(invRows.map((i) => i.matchId))];
+  const configuredIds = [...new Set(invRows.map((i) => i.matchId))].filter(
+    (id): id is number => id != null,
+  );
   const now = new Date();
 
   // A competition filter opens its whole list; unfiltered stays near-term.
@@ -339,9 +389,10 @@ export async function getMatchesWithInventory({
 
 export async function getRecentCheckIns(limit = 10) {
   return db
-    .select({ application: applications, match: matches })
+    .select({ application: applications, match: matches, season: seasons })
     .from(applications)
-    .innerJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(seasons, eq(applications.seasonId, seasons.id))
     .where(eq(applications.status, "checked_in"))
     .orderBy(desc(applications.checkedInAt))
     .limit(limit);
@@ -349,9 +400,10 @@ export async function getRecentCheckIns(limit = 10) {
 
 export async function getReviewedVendors() {
   return db
-    .select({ application: applications, match: matches })
+    .select({ application: applications, match: matches, season: seasons })
     .from(applications)
-    .innerJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(seasons, eq(applications.seasonId, seasons.id))
     .where(
       and(
         eq(applications.type, "vendor"),
@@ -392,9 +444,10 @@ export async function getApplicationPipeline() {
 
 export async function getApplicationsByPhone(phone: string) {
   return db
-    .select({ application: applications, match: matches })
+    .select({ application: applications, match: matches, season: seasons })
     .from(applications)
-    .innerJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(seasons, eq(applications.seasonId, seasons.id))
     .where(eq(applications.phone, phone))
     .orderBy(desc(applications.createdAt));
 }
@@ -419,9 +472,10 @@ export async function getApplicationsList(opts: {
     );
   }
   return db
-    .select({ application: applications, match: matches })
+    .select({ application: applications, match: matches, season: seasons })
     .from(applications)
-    .innerJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(seasons, eq(applications.seasonId, seasons.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(applications.createdAt))
     .limit(200);

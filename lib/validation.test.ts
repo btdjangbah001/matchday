@@ -98,7 +98,7 @@ describe("parkingSchema", () => {
 describe("vendorSchema", () => {
   it("accepts a complete vendor application", () => {
     const result = vendorSchema.safeParse({
-      matchId: "3",
+      seasonId: "3",
       firstName: "Ama",
       lastName: "Mensah",
       vendorType: "Food",
@@ -110,7 +110,7 @@ describe("vendorSchema", () => {
 
   it("rejects a vendor type outside the approved list", () => {
     const result = vendorSchema.safeParse({
-      matchId: "3",
+      seasonId: "3",
       firstName: "Ama",
       lastName: "Mensah",
       vendorType: "Fireworks",
@@ -122,7 +122,7 @@ describe("vendorSchema", () => {
 
   it("rejects a blank name that is only whitespace", () => {
     const result = vendorSchema.safeParse({
-      matchId: "3",
+      seasonId: "3",
       firstName: "   ",
       lastName: "Mensah",
       vendorType: "Food",

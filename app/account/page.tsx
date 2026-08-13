@@ -3,7 +3,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { requireCustomer } from "@/lib/customer-session";
 import { getApplicationsByPhone } from "@/lib/queries";
 import { logoutCustomer } from "@/app/account/actions";
-import { fixtureTitle, formatKickoff, formatMoney } from "@/lib/format";
+import { formatMoney, scopeSubtitle, scopeTitle } from "@/lib/format";
 import { TICKET_TYPE_LABELS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +43,7 @@ export default async function AccountPage() {
         </Card>
       ) : (
         <ul className="space-y-3">
-          {rows.map(({ application: app, match }) => {
+          {rows.map(({ application: app, match, season }) => {
             const paid = app.status === "paid" || app.status === "checked_in";
             return (
               <li key={app.id}>
@@ -56,11 +56,10 @@ export default async function AccountPage() {
                       <StatusPill status={app.status} />
                     </div>
                     <p className="mt-1 truncate text-sm">
-                      {match.competition ? `${match.competition} · ` : ""}
-                      {fixtureTitle(match.team1, match.team2)}
+                      {scopeTitle(match, season)}
                     </p>
                     <p className="text-xs text-muted">
-                      {formatKickoff(match.kickoff)} ·{" "}
+                      {scopeSubtitle(match, season)} ·{" "}
                       {formatMoney(app.amountMinor)}
                       {app.checkInCode ? ` · code ${app.checkInCode}` : ""}
                     </p>

@@ -15,7 +15,16 @@ const phoneSchema = z
     return normalized;
   });
 
-const matchIdSchema = z.coerce.number().int().positive("Select a match");
+function idSchema(message: string) {
+  return z.preprocess(
+    (v) => (v === undefined || v === null || v === "" ? undefined : Number(v)),
+    z
+      .number({ message })
+      .refine((n) => Number.isInteger(n) && n > 0, { message }),
+  );
+}
+
+const matchIdSchema = idSchema("Select a match");
 
 const networkSchema = z.enum(["MTN", "VODAFONE", "AIRTELTIGO"], {
   message: "Select your mobile money network",
@@ -35,7 +44,7 @@ export const parkingSchema = z.object({
 });
 
 export const vendorSchema = z.object({
-  matchId: matchIdSchema,
+  seasonId: idSchema("Select a season"),
   firstName: z.string().trim().min(1, "First name is required").max(60),
   lastName: z.string().trim().min(1, "Last name is required").max(60),
   vendorType: z.enum(VENDOR_TYPES),

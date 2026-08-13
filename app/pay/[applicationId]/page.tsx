@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { Card, PageShell, StatusPill } from "@/components/ui";
 import { PayButton } from "@/components/forms/PayButton";
 import { getApplicationWithMatch } from "@/lib/queries";
-import { fixtureTitle, formatKickoff, formatMoney } from "@/lib/format";
+import { formatMoney, scopeSubtitle, scopeTitle } from "@/lib/format";
 import { TICKET_TYPE_LABELS } from "@/lib/constants";
 import { isMockPayments } from "@/lib/payments";
 
@@ -16,7 +16,7 @@ export default async function PayPage({
   const { applicationId } = await params;
   const row = await getApplicationWithMatch(applicationId);
   if (!row) notFound();
-  const { application: app, match } = row;
+  const { application: app, match, season } = row;
 
   if (app.status === "pending_otp") redirect(`/verify/${applicationId}`);
   if ((app.status === "paid" || app.status === "checked_in") && app.qrToken) {
@@ -29,7 +29,7 @@ export default async function PayPage({
         {TICKET_TYPE_LABELS[app.type]} application
       </h1>
       <p className="mb-6 text-muted">
-        {fixtureTitle(match.team1, match.team2)} · {formatKickoff(match.kickoff)}
+        {scopeTitle(match, season)} · {scopeSubtitle(match, season)}
       </p>
 
       {isMockPayments() && (
