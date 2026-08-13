@@ -21,6 +21,7 @@ import {
   inventory,
   matches,
   seasons,
+  staff,
 } from "@/db/schema";
 import type { ApplicationStatus, TicketType } from "@/db/schema";
 import { isUuid } from "@/lib/uuid";
@@ -109,6 +110,10 @@ export async function getAvailableMatches(
     .orderBy(asc(matches.kickoff), asc(matches.id));
 
   return rows.map((r) => ({ ...r, remaining: r.capacity - r.sold }));
+}
+
+export async function getStaffList() {
+  return db.select().from(staff).orderBy(asc(staff.id));
 }
 
 export async function getSeasonAdminList() {

@@ -19,6 +19,53 @@ const mockSmsSender: SmsSender = {
   },
 };
 
+const SEND_ATTEMPTS = 3;
+const BACKOFF_MS = [400, 1500];
+const REQUEST_TIMEOUT_MS = 8000;
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+interface Attempt {
+  ok: boolean;
+  retryable: boolean;
+  error?: string;
+}
+
+async function arkeselAttempt(url: string, to: string): Promise<Attempt> {
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const body = await response.text();
+
+    if (response.ok) {
+      console.log(`[SMS] Sent to ${to} via Arkesel. Response: ${body}`);
+      return { ok: true, retryable: false };
+    }
+
+    // 429 and 5xx are worth another go; other 4xx will fail identically.
+    const retryable = response.status === 429 || response.status >= 500;
+    console.error(
+      `[SMS] Arkesel responded ${response.status} for ${to}. Response: ${body}`,
+    );
+    return {
+      ok: false,
+      retryable,
+      error: `Arkesel responded ${response.status}`,
+    };
+  } catch (err) {
+    const timedOut = err instanceof Error && err.name === "TimeoutError";
+    console.error(`[SMS] ${timedOut ? "Timed out" : "Exception"} sending to ${to}:`, err);
+    return {
+      ok: false,
+      retryable: true,
+      error: timedOut ? "SMS gateway timed out" : "Network error sending SMS",
+    };
+  }
+}
+
 // Never throws: a failed send is logged and swallowed so it can't break the
 // calling flow. Callers that must know check the returned ok flag.
 const arkeselSmsSender: SmsSender = {
@@ -29,13 +76,10 @@ const arkeselSmsSender: SmsSender = {
       return { ok: false, error: "SMS not configured" };
     }
 
-    // Arkesel sender ID max length is 11 characters.
     let senderId = opts?.senderId || process.env.ARKESEL_SENDER || "Matchday";
     if (senderId.length > 11) senderId = senderId.slice(0, 11);
 
-    // Arkesel expects the international format without a leading "+".
     const recipient = to.replace(/^\+/, "");
-
     const url =
       `https://sms.arkesel.com/sms/api?action=send-sms` +
       `&api_key=${encodeURIComponent(apiKey)}` +
@@ -43,21 +87,23 @@ const arkeselSmsSender: SmsSender = {
       `&from=${encodeURIComponent(senderId)}` +
       `&sms=${encodeURIComponent(message)}`;
 
-    try {
-      const response = await fetch(url);
-      const body = await response.text();
-      if (!response.ok) {
-        console.error(
-          `[SMS] Failed to send to ${to}. Status: ${response.status}. Response: ${body}`,
+    let last: Attempt = { ok: false, retryable: false, error: "SMS not attempted" };
+
+    for (let attempt = 1; attempt <= SEND_ATTEMPTS; attempt++) {
+      last = await arkeselAttempt(url, to);
+      if (last.ok) return { ok: true };
+      if (!last.retryable) break;
+
+      if (attempt < SEND_ATTEMPTS) {
+        const delay = BACKOFF_MS[attempt - 1] ?? BACKOFF_MS[BACKOFF_MS.length - 1];
+        console.warn(
+          `[SMS] Retrying ${to} in ${delay}ms (attempt ${attempt + 1} of ${SEND_ATTEMPTS}).`,
         );
-        return { ok: false, error: `Arkesel responded ${response.status}` };
+        await wait(delay);
       }
-      console.log(`[SMS] Sent to ${to} via Arkesel. Response: ${body}`);
-      return { ok: true };
-    } catch (err) {
-      console.error(`[SMS] Exception sending to ${to}:`, err);
-      return { ok: false, error: "Network error sending SMS" };
     }
+
+    return { ok: false, error: last.error };
   },
 };
 

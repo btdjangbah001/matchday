@@ -29,6 +29,7 @@ const NAV: NavGroup[] = [
       { href: "/backoffice/matches", label: "Matches", icon: "calendar" },
       { href: "/backoffice/seasons", label: "Seasons", icon: "trophy" },
       { href: "/backoffice/competitions", label: "Competitions", icon: "food" },
+      { href: "/backoffice/staff", label: "Staff", icon: "people" },
     ],
   },
 ];
