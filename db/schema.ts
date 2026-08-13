@@ -37,6 +37,7 @@ export const applicationStatusEnum = pgEnum("application_status", [
 export const otpPurposeEnum = pgEnum("otp_purpose", [
   "application",
   "staff_login",
+  "customer_login",
 ]);
 
 export const paymentStatusEnum = pgEnum("payment_status", [
@@ -157,9 +158,32 @@ export const payments = pgTable("payments", {
     .references(() => applications.id, { onDelete: "cascade" }),
   provider: text("provider").notNull(),
   providerRef: text("provider_ref").notNull(),
+  // Hosted-checkout URL for redirect providers (mock, TechUp); null for MoMo push.
+  checkoutUrl: text("checkout_url"),
   amountMinor: integer("amount_minor").notNull(),
   status: paymentStatusEnum("status").notNull().default("pending"),
   raw: jsonb("raw"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// Admin-managed schedule sources. Admins add a competition + its openfootball
+// source here and trigger a sync; fixtures only appear when real data exists.
+export const competitions = pgTable("competitions", {
+  id: serial("id").primaryKey(),
+  // Stable prefix for a fixture's ext_id, e.g. "en.1" or "ucl".
+  code: text("code").notNull().unique(),
+  name: text("name").notNull(),
+  // "json" (openfootball/football.json) or "txt" (openfootball text DSL repos).
+  sourceKind: text("source_kind").notNull(),
+  // openfootball repo, e.g. "england" or "football.json".
+  repo: text("repo").notNull(),
+  season: text("season").notNull(), // e.g. "2026-27"
+  file: text("file").notNull(), // e.g. "1-premierleague.txt"
+  active: boolean("active").notNull().default(true),
+  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+  lastCount: integer("last_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -172,3 +196,4 @@ export type Inventory = typeof inventory.$inferSelect;
 export type Application = typeof applications.$inferSelect;
 export type Staff = typeof staff.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type Competition = typeof competitions.$inferSelect;

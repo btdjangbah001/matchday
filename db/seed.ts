@@ -1,6 +1,7 @@
 import { asc, gte } from "drizzle-orm";
 import { db } from "@/db";
-import { inventory, matches, staff } from "@/db/schema";
+import { competitions, inventory, matches, staff } from "@/db/schema";
+import { DEFAULT_COMPETITIONS } from "@/lib/competitions";
 import { syncSchedules } from "@/lib/schedule";
 
 // How many of the next upcoming fixtures to open for booking by default. Staff
@@ -9,9 +10,15 @@ import { syncSchedules } from "@/lib/schedule";
 const DEFAULT_SCREENED = 30;
 
 async function main() {
-  console.log("Syncing league schedules...");
-  const { synced, competitions } = await syncSchedules();
-  console.log(`  ${synced} fixtures across ${competitions} competitions.`);
+  console.log("Registering default competitions...");
+  await db
+    .insert(competitions)
+    .values(DEFAULT_COMPETITIONS)
+    .onConflictDoNothing({ target: competitions.code });
+
+  console.log("Syncing competition schedules...");
+  const { synced, competitions: withData } = await syncSchedules();
+  console.log(`  ${synced} fixtures across ${withData} competitions.`);
 
   console.log("Seeding staff allowlist...");
   await db
