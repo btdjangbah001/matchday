@@ -58,15 +58,34 @@ const techupPaymentProvider: PaymentProvider = {
   },
 };
 
+const PAYMENT_PROVIDERS: Record<string, PaymentProvider> = {
+  mock: mockPaymentProvider,
+  techup: techupPaymentProvider,
+};
+
 export function isMockPayments(): boolean {
-  return process.env.PAYMENTS_PROVIDER !== "techup";
+  return process.env.PAYMENTS_PROVIDER === "mock";
 }
 
 export function getPaymentProvider(): PaymentProvider {
-  if (process.env.PAYMENTS_PROVIDER === "techup") return techupPaymentProvider;
+  const name = process.env.PAYMENTS_PROVIDER;
+  const known = Object.keys(PAYMENT_PROVIDERS).join(", ");
+
+  if (!name) {
+    throw new Error(`PAYMENTS_PROVIDER is not set. Choose one of: ${known}.`);
+  }
+
+  const provider = PAYMENT_PROVIDERS[name];
+  if (!provider) {
+    throw new Error(
+      `PAYMENTS_PROVIDER is "${name}", which is not a known payment provider. ` +
+        `Choose one of: ${known}.`,
+    );
+  }
 
   // The mock settles every payment as successful.
   if (
+    name === "mock" &&
     process.env.NODE_ENV === "production" &&
     process.env.ALLOW_MOCK_PAYMENTS !== "true"
   ) {
@@ -77,5 +96,5 @@ export function getPaymentProvider(): PaymentProvider {
     );
   }
 
-  return mockPaymentProvider;
+  return provider;
 }

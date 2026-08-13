@@ -61,10 +61,28 @@ const arkeselSmsSender: SmsSender = {
   },
 };
 
+const SMS_SENDERS: Record<string, SmsSender> = {
+  mock: mockSmsSender,
+  arkesel: arkeselSmsSender,
+};
+
 export function getSmsSender(): SmsSender {
-  return process.env.SMS_PROVIDER === "arkesel"
-    ? arkeselSmsSender
-    : mockSmsSender;
+  const name = process.env.SMS_PROVIDER;
+  const known = Object.keys(SMS_SENDERS).join(", ");
+
+  if (!name) {
+    throw new Error(`SMS_PROVIDER is not set. Choose one of: ${known}.`);
+  }
+
+  const sender = SMS_SENDERS[name];
+  if (!sender) {
+    throw new Error(
+      `SMS_PROVIDER is "${name}", which is not a known SMS provider. ` +
+        `Choose one of: ${known}.`,
+    );
+  }
+
+  return sender;
 }
 
 export async function sendSms(
