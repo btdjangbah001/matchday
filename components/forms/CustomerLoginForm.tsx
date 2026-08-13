@@ -44,8 +44,13 @@ function CodeStep({ phone }: { phone: string }) {
     verifyCustomerOtp,
     { step: "code", phone },
   );
+  const [resendState, resendAction] = useActionState<LoginState, FormData>(
+    requestCustomerOtp,
+    {},
+  );
 
   return (
+    <>
     <form action={verifyAction} className="space-y-4">
       <input type="hidden" name="phone" value={phone} />
       <Field label="Enter the code we texted you">
@@ -64,5 +69,20 @@ function CodeStep({ phone }: { phone: string }) {
         Sign in
       </SubmitButton>
     </form>
+
+      <form action={resendAction} className="mt-4 text-center">
+        <input type="hidden" name="phone" value={phone} />
+        <button
+          type="submit"
+          className="rounded text-sm text-brand-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+        >
+          Didn&apos;t get the code? Send another
+        </button>
+        {resendState.step === "code" && (
+          <p className="mt-1 text-sm text-muted">New code sent.</p>
+        )}
+        <FormError message={resendState.error} />
+      </form>
+    </>
   );
 }

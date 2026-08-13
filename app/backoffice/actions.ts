@@ -477,3 +477,82 @@ export async function toggleSeason(formData: FormData): Promise<void> {
   revalidatePath("/backoffice/seasons");
   revalidatePath("/apply/vendor");
 }
+
+async function requireAdmin() {
+  const session = await requireStaff();
+  if (session.role !== "admin") redirect("/backoffice");
+  return session;
+}
+
+export interface StaffFormState {
+  error?: string;
+  added?: string;
+}
+
+export async function addStaff(
+  _prev: StaffFormState,
+  formData: FormData,
+): Promise<StaffFormState> {
+  await requireAdmin();
+
+  const name = String(formData.get("name") ?? "").trim();
+  const phone = normalizePhone(String(formData.get("phone") ?? ""));
+  const role = String(formData.get("role") ?? "staff");
+
+  if (!name) return { error: "Enter a name." };
+  if (!phone) return { error: "Enter a valid Ghana phone number." };
+  if (!["staff", "admin"].includes(role)) return { error: "Pick a role." };
+
+  const [existing] = await db
+    .select({ id: staff.id, active: staff.active })
+    .from(staff)
+    .where(eq(staff.phone, phone))
+    .limit(1);
+
+  if (existing) {
+    if (existing.active) {
+      return { error: "That number already has back-office access." };
+    }
+    await db
+      .update(staff)
+      .set({ name, role, active: true })
+      .where(eq(staff.id, existing.id));
+    revalidatePath("/backoffice/staff");
+    return { added: name };
+  }
+
+  await db.insert(staff).values({ name, phone, role });
+  revalidatePath("/backoffice/staff");
+  return { added: name };
+}
+
+export async function toggleStaff(formData: FormData): Promise<void> {
+  const session = await requireAdmin();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) redirect("/backoffice/staff");
+
+  const [member] = await db
+    .select()
+    .from(staff)
+    .where(eq(staff.id, id))
+    .limit(1);
+  if (!member) redirect("/backoffice/staff");
+
+  if (member.active) {
+    if (member.id === session.staffId) redirect("/backoffice/staff?error=self");
+
+    const [{ admins }] = await db
+      .select({ admins: sql<number>`count(*)` })
+      .from(staff)
+      .where(and(eq(staff.role, "admin"), eq(staff.active, true)));
+    if (member.role === "admin" && Number(admins) <= 1) {
+      redirect("/backoffice/staff?error=last-admin");
+    }
+  }
+
+  await db
+    .update(staff)
+    .set({ active: !member.active })
+    .where(eq(staff.id, id));
+  revalidatePath("/backoffice/staff");
+}
