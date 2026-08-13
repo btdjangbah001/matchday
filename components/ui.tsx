@@ -302,8 +302,9 @@ export function FixtureCard({
   variant?: "full" | "compact";
   className?: string;
 }) {
-  const minPrice = inventory.length
-    ? Math.min(...inventory.map((i) => i.priceMinor))
+  const bookable = inventory.filter((i) => i.type !== "vendor");
+  const minPrice = bookable.length
+    ? Math.min(...bookable.map((i) => i.priceMinor))
     : 0;
 
   return (
@@ -321,7 +322,7 @@ export function FixtureCard({
         {displayTeam(match.team2)}
       </p>
 
-      {inventory.length === 0 ? (
+      {bookable.length === 0 ? (
         <div className="mt-4 border-t border-border pt-4 text-sm text-muted">
           Not on sale yet.
         </div>
@@ -331,20 +332,25 @@ export function FixtureCard({
             from{" "}
             <span className="font-semibold text-foreground">
               {formatMoney(minPrice)}
-            </span>{" "}
-            · {inventory.map((i) => TICKET_TYPE_LABELS[i.type]).join(" · ")}
+            </span>
           </span>
-          <LinkButton
-            href={`/apply/seat?match=${match.id}`}
-            className="!py-2 text-xs"
-          >
-            Book
-          </LinkButton>
+          <span className="flex gap-2">
+            {bookable.map((inv) => (
+              <LinkButton
+                key={inv.id}
+                href={`/apply/${inv.type}?match=${match.id}`}
+                variant={inv.type === "seat" ? "primary" : "ghost"}
+                className="!py-2 text-xs"
+              >
+                {TICKET_TYPE_LABELS[inv.type]}
+              </LinkButton>
+            ))}
+          </span>
         </div>
       ) : (
         <>
           <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
-            {inventory.map((inv) => {
+            {bookable.map((inv) => {
               const left = Math.max(inv.capacity - inv.sold, 0);
               return (
                 <span
@@ -363,26 +369,16 @@ export function FixtureCard({
             })}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <LinkButton
-              href={`/apply/seat?match=${match.id}`}
-              className="flex-1 !py-2 text-xs"
-            >
-              Get a seat
-            </LinkButton>
-            <LinkButton
-              href={`/apply/parking?match=${match.id}`}
-              variant="ghost"
-              className="flex-1 !py-2 text-xs"
-            >
-              Parking
-            </LinkButton>
-            <LinkButton
-              href={`/apply/vendor?match=${match.id}`}
-              variant="ghost"
-              className="flex-1 !py-2 text-xs"
-            >
-              Vend
-            </LinkButton>
+            {bookable.map((inv) => (
+              <LinkButton
+                key={inv.id}
+                href={`/apply/${inv.type}?match=${match.id}`}
+                variant={inv.type === "seat" ? "primary" : "ghost"}
+                className="flex-1 !py-2 text-xs"
+              >
+                {inv.type === "seat" ? "Get a seat" : TICKET_TYPE_LABELS[inv.type]}
+              </LinkButton>
+            ))}
           </div>
         </>
       )}
