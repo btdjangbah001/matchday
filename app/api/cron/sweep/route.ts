@@ -3,7 +3,6 @@ import { sweepExpiredReservations } from "@/lib/orders";
 
 export const dynamic = "force-dynamic";
 
-// Vercel cron hits this; CRON_SECRET keeps anyone else from doing so.
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
