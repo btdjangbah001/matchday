@@ -11,11 +11,7 @@ function baseUrl(): string {
   return process.env.APP_BASE_URL || "http://localhost:3000";
 }
 
-/**
- * Atomically claim one unit of inventory for a match/type. Returns the price if
- * a unit was available, or null if sold out. The `sold < capacity` guard makes
- * this safe against concurrent checkouts without an explicit transaction.
- */
+// The `sold < capacity` guard makes this safe under concurrent checkouts.
 export async function reserveInventory(
   matchId: number,
   type: TicketType,
@@ -35,7 +31,6 @@ export async function reserveInventory(
   return row ? { priceMinor: row.priceMinor } : null;
 }
 
-/** Return a previously reserved unit (e.g. abandoned checkout). */
 export async function releaseInventory(
   matchId: number,
   type: TicketType,
@@ -52,10 +47,7 @@ export async function releaseInventory(
     );
 }
 
-/**
- * Mark a payment succeeded and issue the pass. Idempotent: safe to call more
- * than once for the same provider reference (webhook retries, mock re-submits).
- */
+// Idempotent: safe to call repeatedly for the same provider reference.
 export async function markPaymentSucceeded(
   providerRef: string,
 ): Promise<Application | null> {
@@ -80,7 +72,6 @@ export async function markPaymentSucceeded(
     .limit(1);
   if (!app) return null;
 
-  // Already fulfilled — return as-is so the caller stays idempotent.
   if (app.status === "paid" || app.status === "checked_in") return app;
 
   const checkInCode = generateCheckInCode();

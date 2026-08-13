@@ -24,8 +24,6 @@ function baseUrl(): string {
   return process.env.APP_BASE_URL || "http://localhost:3000";
 }
 
-// ---------- Staff login (OTP to a pre-registered staff phone) ----------
-
 export interface LoginState {
   step?: "code";
   phone?: string;
@@ -93,8 +91,6 @@ export async function logout(): Promise<void> {
   redirect("/backoffice/login");
 }
 
-// ---------- Vendor review ----------
-
 export async function approveVendor(formData: FormData): Promise<void> {
   await requireStaff();
   const id = String(formData.get("applicationId") ?? "");
@@ -148,8 +144,6 @@ export async function rejectVendor(formData: FormData): Promise<void> {
 
   revalidatePath("/backoffice/vendors");
 }
-
-// ---------- Check-in (manual code or scanned QR token) ----------
 
 export interface CheckInState {
   error?: string;
@@ -221,8 +215,6 @@ export async function checkIn(
   };
 }
 
-// ---------- Schedule + inventory management ----------
-
 export async function syncSchedule(): Promise<void> {
   await requireStaff();
   await syncSchedules();
@@ -230,8 +222,6 @@ export async function syncSchedule(): Promise<void> {
   revalidatePath("/backoffice/competitions");
   revalidatePath("/");
 }
-
-// ---------- Competition (data source) management ----------
 
 export async function addCompetition(formData: FormData): Promise<void> {
   await requireStaff();
@@ -319,20 +309,14 @@ export async function saveInventory(formData: FormData): Promise<void> {
   revalidatePath("/");
 }
 
-/**
- * Apply a price + capacity to a ticket type across the fixtures currently in
- * scope (the next 14 days, optionally filtered to one competition) — the same
- * set shown on the matches page. Per-match values can still be overridden
- * afterwards via saveInventory. `sold` counts are preserved. Leave a type's
- * capacity blank to skip that type.
- */
+// Scope matches the matches page; blank capacity skips that type.
 export async function applyInventoryToAll(formData: FormData): Promise<void> {
   await requireStaff();
 
   const types = ["seat", "parking", "vendor"] as const;
   const competition = String(formData.get("competition") ?? "").trim();
 
-  // Match the matches-page scope: a competition filter opens that whole
+  // A competition filter opens that whole
   // competition; otherwise just the next 14 days.
   const now = new Date();
   const scope = competition

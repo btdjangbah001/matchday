@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { competitions, matches, type Competition } from "@/db/schema";
 import { sourceUrl } from "@/lib/competitions";
 
-/** A fixture normalised from either source before it becomes a DB row. */
 interface NormalizedMatch {
   round: string | null;
   date: string | null; // YYYY-MM-DD
@@ -11,8 +10,6 @@ interface NormalizedMatch {
   team1: string;
   team2: string;
 }
-
-// ---------- Source adapter: structured football.json ----------
 
 type TeamLike = string | { name?: string } | null | undefined;
 function teamText(value: TeamLike): string | null {
@@ -31,23 +28,18 @@ function parseFootballJson(raw: unknown): NormalizedMatch[] {
   }));
 }
 
-// ---------- Source adapter: openfootball text DSL ----------
-
 const MONTHS: Record<string, number> = {
   Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
   Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11,
 };
 
-// Header line, e.g. "▪ League, Matchday 1" or "» Round of 16".
 const ROUND_RE = /^[»▪●•]\s*(.+?)\s*$/;
-// Date line, e.g. "Tue Sep 16 2025" or "Wed Sep 17".
 const DATE_RE = /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+([A-Z][a-z]{2})\s+(\d{1,2})(?:\s+(\d{4}))?$/;
 // Match line: optional time, then "Team1 v Team2" (+ optional (CC) codes / score).
 // Handles both league files ("Arsenal FC  v  Coventry City FC") and cup files
 // ("Athletic Club (ESP)  v Arsenal FC (ENG)  0-2 (0-0)").
 const MATCH_RE = /^(?:(\d{1,2}:\d{2})\s+)?(.+?)\s+v\.?\s+(.+)$/;
 
-// Drop a trailing score (starts after 2+ spaces with a digit) and any (CC) code.
 function cleanTeam(raw: string): string {
   return raw.split(/\s{2,}(?=\d)/)[0].replace(/\s*\([A-Z]{3}\)\s*$/, "").trim();
 }
@@ -90,7 +82,6 @@ export function parseOpenfootballText(text: string): NormalizedMatch[] {
     if (matchMatch && date) {
       const team1 = cleanTeam(matchMatch[2]);
       const team2 = cleanTeam(matchMatch[3]);
-      // Skip lines that aren't real fixtures (e.g. notes, scores).
       if (team1 && team2 && !/^\d/.test(team1) && !/^\d/.test(team2)) {
         if (matchMatch[1]) time = matchMatch[1];
         out.push({ round, date, time, team1, team2 });
@@ -100,15 +91,11 @@ export function parseOpenfootballText(text: string): NormalizedMatch[] {
   return out;
 }
 
-// ---------- Shared: kickoff parsing + demo season shift ----------
-
 function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-// "20:00" (local) or "20:00 UTC-6". Stored as a UTC instant and always displayed
-// in UTC, so the advertised time is what shows. (Per-venue timezone handling is
-// a documented simplification — see the technical-debt register.)
+// Stored and displayed in UTC: the advertised time is the time shown.
 function parseKickoff(date: string | null, time: string | null): Date | null {
   if (!date) return null;
   const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
@@ -120,13 +107,6 @@ function parseKickoff(date: string | null, time: string | null): Date | null {
   return new Date(Date.UTC(y, mo - 1, d, Number(tm[1]) - offset, Number(tm[2])));
 }
 
-// ---------- Sync ----------
-
-/**
- * Sync one competition from its openfootball source. Real dates are stored as-is
- * (no shifting) — if a season isn't published or is over, no upcoming fixtures
- * result, which is the honest outcome. Records the sync time + fixture count.
- */
 export async function syncCompetition(comp: Competition): Promise<number> {
   let count = 0;
   const res = await fetch(sourceUrl(comp.repo, comp.season, comp.file), {
@@ -175,7 +155,6 @@ export async function syncCompetition(comp: Competition): Promise<number> {
   return count;
 }
 
-/** Sync one competition by id (used by the admin "Sync" button). */
 export async function syncCompetitionById(id: number): Promise<number> {
   const [comp] = await db
     .select()
@@ -186,7 +165,6 @@ export async function syncCompetitionById(id: number): Promise<number> {
   return syncCompetition(comp);
 }
 
-/** Sync every active competition. */
 export async function syncSchedules(): Promise<{
   synced: number;
   competitions: number;

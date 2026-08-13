@@ -10,23 +10,12 @@ import {
 } from "@/db/schema";
 import type { TicketType } from "@/db/schema";
 
-/**
- * Helpers for the integration suite.
- *
- * These tests run against a real database, which in development is the same
- * Neon instance the application uses. Isolation is therefore by convention and
- * enforced here rather than assumed:
- *
- *   - every fixture match carries an `ext_id` beginning with FIXTURE_PREFIX
- *   - every fixture phone number sits in a reserved range no real customer holds
- *   - cleanup only ever deletes rows reachable from a fixture match
- *
- * Nothing in this file deletes a row it did not create.
- */
-
+// These tests run against the development database, so isolation is by
+// convention: every fixture match carries this prefix and cleanup only ever
+// deletes rows reachable from one.
 export const FIXTURE_PREFIX = "itest-";
 
-/** +23390... is not an allocated Ghanaian mobile range, so it cannot collide. */
+// +23390... is not an allocated Ghanaian range, so it cannot collide.
 export function testPhone(): string {
   const n = Math.floor(Math.random() * 1_000_000)
     .toString()
@@ -40,12 +29,6 @@ export interface Fixture {
   kickoff: Date;
 }
 
-/**
- * Create a match plus inventory for it.
- *
- * `kickoff` defaults to 10 minutes from now so the check-in window (which opens
- * CHECKIN_WINDOW_MINUTES before kickoff, 60 by default) is already open.
- */
 export async function createFixture(opts?: {
   seat?: { price: number; capacity: number };
   parking?: { price: number; capacity: number };
@@ -53,6 +36,7 @@ export async function createFixture(opts?: {
   kickoff?: Date;
 }): Promise<Fixture> {
   const extId = `${FIXTURE_PREFIX}${randomUUID()}`;
+  // Default puts us inside the check-in window, which opens 60 minutes out.
   const kickoff = opts?.kickoff ?? new Date(Date.now() + 10 * 60_000);
 
   const [match] = await db
@@ -103,7 +87,6 @@ export async function createFixture(opts?: {
   return { matchId: match.id, extId, kickoff };
 }
 
-/** Current sold/capacity for one product on a fixture. */
 export async function readInventory(matchId: number, type: TicketType) {
   const [row] = await db
     .select()
@@ -122,13 +105,8 @@ export async function readApplication(id: string) {
   return row;
 }
 
-/**
- * OTP codes are stored only as a salted hash, so a test cannot read the code
- * the application generated. Rather than stubbing the OTP module — which would
- * stop the test exercising the real verification path — overwrite the stored
- * hash with one computed from a code the test knows. `verifyOtp` then runs
- * unmodified, comparing hashes exactly as it does in production.
- */
+// Codes are stored only as a salted hash. Overwriting the hash with one the
+// test computes lets verifyOtp run unmodified rather than being stubbed.
 export async function forceOtpCode(
   applicationId: string,
   phone: string,
@@ -146,24 +124,19 @@ export async function forceOtpCode(
     .orderBy(otpCodes.createdAt)
     .limit(1);
 
-  if (!latest) throw new Error("no OTP row found for application " + applicationId);
+  if (!latest) throw new Error("no OTP row for application " + applicationId);
   await db.update(otpCodes).set({ codeHash }).where(eq(otpCodes.id, latest.id));
 }
 
-/**
- * Server actions signal navigation by throwing. Catch that, and return the
- * destination so a test can read the id out of the URL the user would have
- * been sent to.
- */
+// Server actions signal navigation by throwing; return the destination so a
+// test can read the new id out of it.
 export async function catchRedirect(fn: () => Promise<unknown>): Promise<string> {
   try {
     await fn();
   } catch (e) {
     const digest = (e as { digest?: string }).digest;
     if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) {
-      // Digest format: NEXT_REDIRECT;<kind>;<url>;<status>;
-      const parts = digest.split(";");
-      return parts[2] ?? "";
+      return digest.split(";")[2] ?? "";
     }
     throw e;
   }
@@ -176,10 +149,6 @@ export function formData(fields: Record<string, string | number>): FormData {
   return fd;
 }
 
-/**
- * Remove every row this suite created. Scoped strictly to fixture matches:
- * applications, their OTP codes and payments, then inventory, then the match.
- */
 export async function cleanupFixtures(): Promise<void> {
   const fixtureMatches = await db
     .select({ id: matches.id })

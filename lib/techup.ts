@@ -1,8 +1,5 @@
-// TechupStudio Payments API client — Receive (customer pays us) via hosted
-// checkout. Setup order on their side is Bank → Settlement → Payment, so a
-// TECHUP_SETTLEMENT_ID is required (created once against your merchant bank).
-//
-// Auth headers on every request: x-api-key, x-project-id.
+// Setup order on TechUp's side is Bank -> Settlement -> Payment, so
+// TECHUP_SETTLEMENT_ID must exist before any of this works.
 import { randomUUID } from "node:crypto";
 import type { PaymentStatus } from "@/lib/payments";
 
@@ -23,7 +20,6 @@ function authHeaders(): Record<string, string> {
   };
 }
 
-// TechUp status strings → our internal status.
 function mapStatus(raw: unknown): PaymentStatus {
   const s = String(raw ?? "").toLowerCase();
   if (s === "successful" || s === "refunded") return "success";
@@ -32,7 +28,6 @@ function mapStatus(raw: unknown): PaymentStatus {
 }
 
 export interface TechupInitiateParams {
-  /** Our correlation id (the application id). */
   correlationId: string;
   amountMinor: number;
   description: string;
@@ -42,9 +37,7 @@ export interface TechupInitiateParams {
 }
 
 export interface TechupInitiateResult {
-  /** URL to redirect the customer to (hosted checkout). */
   actionUrl: string;
-  /** TechUp payment reference — stored as our provider_ref for reconciliation. */
   reference: string;
 }
 
@@ -112,7 +105,6 @@ export async function getPaymentStatus(reference: string): Promise<PaymentStatus
   return mapStatus(status);
 }
 
-// Callback body is a wrapper: { data: <our data>, callback: PaymentReadDto }.
 export function parseCallback(body: unknown): {
   reference: string | null;
   status: PaymentStatus;

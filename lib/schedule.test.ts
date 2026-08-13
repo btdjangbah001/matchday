@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseOpenfootballText } from "@/lib/schedule";
 
-// The openfootball text DSL is the upstream fixture source. It is whitespace
-// significant, mixes league and cup formats, and carries scores for played
-// matches. Everything the centre screens flows through this parser, so a
-// regression here empties the fixture list site-wide.
-
 describe("parseOpenfootballText", () => {
   it("parses a simple league matchday", () => {
     const result = parseOpenfootballText(`

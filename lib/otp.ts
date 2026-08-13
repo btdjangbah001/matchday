@@ -11,7 +11,6 @@ const MAX_ATTEMPTS = 5;
 const RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_CODES_PER_WINDOW = 5;
 
-/** Thrown when the verification code SMS could not be delivered. */
 export class OtpSendError extends Error {
   constructor(message: string) {
     super(message);
@@ -22,10 +21,7 @@ export class OtpSendError extends Error {
 type Purpose = "application" | "staff_login" | "customer_login";
 
 function generateCode(): string {
-  // 6-digit numeric code. Uses the CSPRNG, not Math.random(): possession of this
-  // code is the only identity proof in the system — for customers *and* for
-  // back-office staff — and V8's PRNG state is recoverable from observed output.
-  // See TD-04.
+  // CSPRNG, not Math.random(): this code is the only identity proof in the system.
   return String(randomInt(100000, 1000000));
 }
 
@@ -34,17 +30,13 @@ function hashCode(phone: string, code: string): string {
   return createHash("sha256").update(`${phone}:${code}:${pepper}`).digest("hex");
 }
 
-/**
- * Create and "send" an OTP. Returns the plaintext code so callers can surface it
- * in development; never expose it to clients in production.
- */
+// Returns the plaintext code so callers can surface it in development only.
 export async function issueOtp(params: {
   phone: string;
   purpose: Purpose;
   applicationId?: string;
   message?: (code: string) => string;
 }): Promise<{ code: string }> {
-  // Throttle repeated requests from the same number.
   const [{ recent }] = await db
     .select({ recent: sql<number>`count(*)` })
     .from(otpCodes)
@@ -73,8 +65,7 @@ export async function issueOtp(params: {
     params.message?.(code) ??
     `Your Matchday verification code is ${code}. It expires in 5 minutes.`;
 
-  // Unlike receipts/links, a failed OTP send must surface to the user — they're
-  // blocked without the code. Callers catch this and show a retry message.
+  // A failed OTP send must surface: the user is blocked without the code.
   const result = await sendSms(params.phone, message);
   if (!result.ok) {
     throw new OtpSendError(

@@ -18,7 +18,6 @@ import { applications, competitions, inventory, matches } from "@/db/schema";
 import type { ApplicationStatus, TicketType } from "@/db/schema";
 import { isUuid } from "@/lib/uuid";
 
-/** Competitions with their fixture counts, for the admin competitions page. */
 export async function getCompetitionAdminList() {
   const comps = await db
     .select()
@@ -41,7 +40,6 @@ export async function getCompetitionAdminList() {
   }));
 }
 
-/** Active competition names, for public + back-office filter dropdowns. */
 export async function getActiveCompetitionNames(): Promise<string[]> {
   const rows = await db
     .select({ name: competitions.name })
@@ -51,7 +49,6 @@ export async function getActiveCompetitionNames(): Promise<string[]> {
   return rows.map((r) => r.name);
 }
 
-// Statuses that represent confirmed, paid attendees.
 const CONFIRMED = ["paid", "checked_in"] as const;
 
 // A match is "upcoming" if it kicks off in the future, or its time is still TBD
@@ -75,7 +72,6 @@ export interface MatchOption {
   remaining: number;
 }
 
-/** Matches that have inventory configured for a given type, with availability. */
 export async function getAvailableMatches(
   type: TicketType,
 ): Promise<MatchOption[]> {
@@ -101,7 +97,6 @@ export async function getAvailableMatches(
   return rows.map((r) => ({ ...r, remaining: r.capacity - r.sold }));
 }
 
-/** Upcoming fixtures the centre is actively screening (have inventory set). */
 export async function getScreenedMatches(limit = 8) {
   const invRows = await db
     .select()
@@ -123,10 +118,6 @@ export async function getScreenedMatches(limit = 8) {
   }));
 }
 
-/**
- * Browse the whole upcoming schedule, filterable by competition + team. Each
- * fixture carries its inventory (empty if the centre hasn't put it on sale yet).
- */
 export async function getFixtures(opts: {
   competition?: string;
   q?: string;
@@ -191,7 +182,6 @@ export async function getApplicationByQrToken(qrToken: string) {
   return row ?? null;
 }
 
-/** Pending vendor applications awaiting a back-office decision. */
 export async function getVendorsAwaitingReview() {
   return db
     .select({ application: applications, match: matches })
@@ -225,7 +215,6 @@ export async function getDashboardCounts() {
   };
 }
 
-/** Total collected revenue and a per-ticket-type breakdown. */
 export async function getRevenueReport() {
   const byType = await db
     .select({
@@ -249,7 +238,6 @@ export async function getRevenueReport() {
   };
 }
 
-/** Per-match sales breakdown: how many of each type, revenue, and check-ins. */
 export async function getMatchBreakdown() {
   const agg = await db
     .select({
@@ -291,7 +279,6 @@ export async function getMatchBreakdown() {
     );
 }
 
-/** Confirmed attendees for a single match (who is coming, and their status). */
 export async function getMatchAttendees(matchId: number) {
   const [match] = await db
     .select()
@@ -314,12 +301,6 @@ export async function getMatchAttendees(matchId: number) {
   return { match, attendees };
 }
 
-/**
- * Matches with their per-type inventory, for the back-office matches page.
- * With thousands of league fixtures we can't list them all, so this returns
- * fixtures within a near-term horizon PLUS any fixture already configured
- * (has inventory), optionally filtered to one competition.
- */
 export async function getMatchesWithInventory({
   competition,
   horizonDays = 14,
@@ -328,9 +309,7 @@ export async function getMatchesWithInventory({
   const configuredIds = [...new Set(invRows.map((i) => i.matchId))];
   const now = new Date();
 
-  // Filtered to one competition → show its whole upcoming list (a competition
-  // may start weeks out). Unfiltered → the near-term window plus anything
-  // already configured, so the all-competitions view stays manageable.
+  // A competition filter opens its whole list; unfiltered stays near-term.
   let where;
   if (competition) {
     where = and(eq(matches.competition, competition), gte(matches.kickoff, now));
@@ -368,7 +347,6 @@ export async function getRecentCheckIns(limit = 10) {
     .limit(limit);
 }
 
-/** Vendor applications that have already been decided, ordered by match. */
 export async function getReviewedVendors() {
   return db
     .select({ application: applications, match: matches })
@@ -389,7 +367,6 @@ export async function getReviewedVendors() {
     .orderBy(asc(matches.kickoff), asc(matches.id), desc(applications.createdAt));
 }
 
-/** Count of applications in each lifecycle stage (a simple funnel). */
 export async function getApplicationPipeline() {
   const [row] = await db
     .select({
@@ -413,7 +390,6 @@ export async function getApplicationPipeline() {
   };
 }
 
-/** Every application tied to a phone number — powers the customer account. */
 export async function getApplicationsByPhone(phone: string) {
   return db
     .select({ application: applications, match: matches })
@@ -423,7 +399,6 @@ export async function getApplicationsByPhone(phone: string) {
     .orderBy(desc(applications.createdAt));
 }
 
-/** Searchable/filterable list of applications for the back office. */
 export async function getApplicationsList(opts: {
   type?: TicketType;
   status?: ApplicationStatus;

@@ -1,13 +1,5 @@
-// SMS gateway abstraction. The mock provider logs to the server console so the
-// whole flow (OTPs, vendor payment links) works in development with no external
-// service. Swap to Arkesel by setting SMS_PROVIDER=arkesel and providing keys.
 
 export interface SendOptions {
-  /**
-   * Override the Arkesel sender ID for this message. Falls back to
-   * ARKESEL_SENDER. (Mirrors the per-category sender selection from the
-   * original C# implementation — add cases here if you need more sender IDs.)
-   */
   senderId?: string;
 }
 
@@ -27,8 +19,8 @@ const mockSmsSender: SmsSender = {
   },
 };
 
-// Arkesel v1 "GET" API. Ported from an existing project: it never throws — a
-// failed send is logged and swallowed so it can't break the calling flow.
+// Never throws: a failed send is logged and swallowed so it can't break the
+// calling flow. Callers that must know check the returned ok flag.
 const arkeselSmsSender: SmsSender = {
   async send(to, message, opts) {
     const apiKey = process.env.ARKESEL_API_KEY;

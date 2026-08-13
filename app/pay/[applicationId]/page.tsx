@@ -32,8 +32,6 @@ export default async function PayPage({
         {fixtureTitle(match.team1, match.team2)} · {formatKickoff(match.kickoff)}
       </p>
 
-      {/* The mock provider settles every payment as successful. Say so plainly
-          rather than letting a simulation look like a real transaction (TD-02). */}
       {isMockPayments() && (
         <p className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
           <strong className="font-semibold">Demonstration mode.</strong> Payments

@@ -5,14 +5,8 @@ import { db } from "@/db";
 import { applications, payments } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 
-// TechupStudio posts { data, callback: PaymentReadDto } here when a payment
-// reaches a terminal state, forwarding the Authorization header we set on the
-// callback. We verify that header, then fulfil on "Successful".
 export async function POST(request: NextRequest) {
-  // Fail closed. A missing secret is a deployment error, not permission to skip
-  // the check — the callback reference is the application id, which the customer
-  // already knows from their own /pay/{id} URL, so an unauthenticated endpoint
-  // would let anyone self-issue a paid pass. See TD-01.
+  // Fail closed: the reference is the application id, which the customer knows.
   const secret = process.env.TECHUP_WEBHOOK_SECRET;
   if (!secret) {
     console.error(
@@ -41,10 +35,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: true, fulfilled: Boolean(app) });
   }
 
-  // Failed / cancelled — mark the payment failed and release the held unit.
-  // The release is tied to *winning* the pending -> failed transition, so if the
-  // polling path observes the same failure the second caller updates no rows and
-  // does not release a second time. See TD-03.
+  // Only the caller that wins the pending -> failed transition releases the unit.
   if (status === "failed") {
     const [payment] = await db
       .select()

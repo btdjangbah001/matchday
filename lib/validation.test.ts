@@ -6,10 +6,6 @@ import {
   vendorSchema,
 } from "@/lib/validation";
 
-// These schemas are the trust boundary. Server actions parse raw FormData
-// through them before anything reaches the database, so every rejection here is
-// an attack or a mistake that never becomes a row.
-
 describe("seatSchema", () => {
   it("accepts a valid booking and normalises the phone", () => {
     const result = seatSchema.safeParse({

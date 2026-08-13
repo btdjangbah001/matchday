@@ -15,7 +15,6 @@ import type { Inventory, Match } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
-/** Delay a `.rise` entrance so siblings cascade instead of landing at once. */
 function stagger(ms: number): CSSProperties {
   return { "--stagger": `${ms}ms` } as CSSProperties;
 }
@@ -41,8 +40,6 @@ const OPTIONS = [
   },
 ];
 
-// A real sequence — each step depends on the one before it — so the numbering
-// carries information rather than decorating the section.
 const STEPS = [
   {
     n: "1",
@@ -61,11 +58,6 @@ const STEPS = [
   },
 ];
 
-/**
- * The next fixture on sale, promoted into the hero. Same anatomy as FixtureCard
- * so it reads as the same family, with the kickoff and price pulled forward —
- * this is the one thing a visitor is most likely to want.
- */
 function NextUpCard({
   match,
   inventory,
