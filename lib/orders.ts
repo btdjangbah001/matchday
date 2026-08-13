@@ -17,7 +17,6 @@ function baseUrl(): string {
   return process.env.APP_BASE_URL || "http://localhost:3000";
 }
 
-// How long a checkout may hold a unit before the sweep takes it back.
 export const HOLD_MINUTES = 20;
 
 async function decrementSold(inventoryId: number): Promise<void> {
@@ -27,12 +26,6 @@ async function decrementSold(inventoryId: number): Promise<void> {
     .where(and(eq(inventory.id, inventoryId), sql`${inventory.sold} > 0`));
 }
 
-/**
- * Hold one unit for an application. Returns null when sold out.
- *
- * An application holds at most one unit: calling this again for the same
- * application refreshes the existing hold rather than taking a second.
- */
 export async function reserveForApplication(
   applicationId: string,
   matchId: number,
@@ -61,8 +54,6 @@ export async function reserveForApplication(
     return { priceMinor: inv.priceMinor };
   }
 
-  // Claim capacity first: this guarded UPDATE is the only thing standing
-  // between two concurrent checkouts and an oversell.
   let [claimed] = await db
     .update(inventory)
     .set({ sold: sql`${inventory.sold} + 1` })
@@ -71,9 +62,6 @@ export async function reserveForApplication(
     )
     .returning({ priceMinor: inventory.priceMinor });
 
-  // Looks sold out — but some of those units may be abandoned holds. Sweep and
-  // try once more, so a stalled checkout can never block a real sale even if
-  // the scheduled sweep is not running.
   if (!claimed) {
     const reclaimed = await sweepExpiredReservations();
     if (reclaimed === 0) return null;
@@ -115,10 +103,6 @@ export async function reserveForApplication(
   return { priceMinor: claimed.priceMinor };
 }
 
-/**
- * Give back an application's held unit. Safe to call repeatedly and from more
- * than one path: only the caller that moves the row out of "held" decrements.
- */
 export async function releaseForApplication(applicationId: string): Promise<void> {
   const [released] = await db
     .update(reservations)
@@ -134,7 +118,6 @@ export async function releaseForApplication(applicationId: string): Promise<void
   if (released) await decrementSold(released.inventoryId);
 }
 
-/** Turn a hold into a sale. The unit stays counted against capacity. */
 export async function consumeReservation(applicationId: string): Promise<void> {
   await db
     .update(reservations)
@@ -147,11 +130,6 @@ export async function consumeReservation(applicationId: string): Promise<void> {
     );
 }
 
-/**
- * Return capacity held by checkouts that were started and then abandoned.
- * Without this a customer who closes the payment page removes that unit from
- * sale permanently, because nothing else observes their disappearance.
- */
 export async function sweepExpiredReservations(): Promise<number> {
   const expired = await db
     .update(reservations)
@@ -183,7 +161,6 @@ export async function sweepExpiredReservations(): Promise<number> {
   return expired.length;
 }
 
-// Idempotent: safe to call repeatedly for the same provider reference.
 export async function markPaymentSucceeded(
   providerRef: string,
 ): Promise<Application | null> {

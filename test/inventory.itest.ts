@@ -90,11 +90,6 @@ describe("releasing a hold", () => {
     expect((await readInventory(f.matchId, "seat")).sold).toBe(0);
   });
 
-  // Regression for TD-03. The webhook and the polling path can both observe the
-  // same failed payment. The old counter decremented on each observation, so
-  // one customer's failure could give away a unit another customer was holding.
-  // A second holder is what makes this detectable: without them the `sold > 0`
-  // floor hid the double decrement.
   it("does not give away another customer's unit when one failure is seen twice", async () => {
     const f = await createFixture({ seat: { price: 5000, capacity: 2 } });
     const failing = await makeApplication(f.matchId, "seat");
@@ -108,7 +103,6 @@ describe("releasing a hold", () => {
     await releaseForApplication(failing);
     await releaseForApplication(failing);
 
-    // Only the failing customer's unit goes back; the other is still held.
     expect((await readInventory(f.matchId, "seat")).sold).toBe(1);
   });
 
@@ -138,8 +132,6 @@ describe("releasing a hold", () => {
 });
 
 describe("abandoned checkouts", () => {
-  // Regression for TD-14. A customer who closes the payment page used to remove
-  // that unit from sale permanently, because nothing observed them leaving.
   it("are swept back into the pool once the hold expires", async () => {
     const f = await createFixture({ seat: { price: 5000, capacity: 1 } });
     const app = await makeApplication(f.matchId, "seat");
@@ -167,7 +159,6 @@ describe("abandoned checkouts", () => {
       .set({ expiresAt: new Date(Date.now() - 60_000) })
       .where(eq(reservations.applicationId, abandoner));
 
-    // No explicit sweep: reserving must reclaim the stale hold by itself.
     expect(
       await reserveForApplication(buyer, f.matchId, "seat"),
     ).not.toBeNull();

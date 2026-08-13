@@ -158,9 +158,6 @@ export const payments = pgTable("payments", {
     .defaultNow(),
 });
 
-// A held unit of inventory, tied to the application holding it. Inventory.sold
-// is only ever moved alongside a status change here, so a unit cannot be
-// released twice, and `expires_at` lets abandoned checkouts be swept back.
 export const reservations = pgTable("reservations", {
   id: uuid("id").primaryKey().defaultRandom(),
   applicationId: uuid("application_id")
