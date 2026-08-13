@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { applications, payments } from "@/db/schema";
-import { markPaymentSucceeded, releaseInventory } from "@/lib/orders";
+import { markPaymentSucceeded, releaseForApplication } from "@/lib/orders";
 
 // Simulate a successful payment in development. Mirrors what the real payment
 // webhook does, so the rest of the flow is identical.
@@ -38,7 +38,7 @@ export async function cancelMockPayment(formData: FormData): Promise<void> {
     .limit(1);
 
   if (app && app.status !== "paid" && app.status !== "checked_in") {
-    await releaseInventory(app.matchId, app.type);
+    await releaseForApplication(app.id);
   }
 
   redirect(`/pay/${payment.applicationId}`);

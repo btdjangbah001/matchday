@@ -13,7 +13,8 @@
     "db:reset": "tsx --env-file=.env db/reset.ts",
     "db:seed": "tsx --env-file=.env db/seed.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.mts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
