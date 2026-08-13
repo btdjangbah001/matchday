@@ -11,7 +11,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:reset": "tsx --env-file=.env db/reset.ts",
-    "db:seed": "tsx --env-file=.env db/seed.ts"
+    "db:seed": "tsx --env-file=.env db/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -34,6 +36,7 @@
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }
