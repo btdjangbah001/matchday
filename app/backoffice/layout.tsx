@@ -13,6 +13,7 @@ const NAV = [
   { href: "/backoffice/vendors", label: "Vendors" },
   { href: "/backoffice/checkin", label: "Check-in" },
   { href: "/backoffice/matches", label: "Matches" },
+  { href: "/backoffice/seasons", label: "Seasons" },
   { href: "/backoffice/competitions", label: "Competitions" },
 ];
 

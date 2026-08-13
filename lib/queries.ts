@@ -111,6 +111,35 @@ export async function getAvailableMatches(
   return rows.map((r) => ({ ...r, remaining: r.capacity - r.sold }));
 }
 
+export async function getSeasonAdminList() {
+  const rows = await db
+    .select({ season: seasons, inventory })
+    .from(seasons)
+    .leftJoin(
+      inventory,
+      and(eq(inventory.seasonId, seasons.id), eq(inventory.type, "vendor")),
+    )
+    .orderBy(desc(seasons.startsAt));
+
+  const counts = await db
+    .select({
+      seasonId: applications.seasonId,
+      total: sql<number>`count(*)`,
+      paid: sql<number>`count(*) filter (where ${applications.status} in ('paid','checked_in'))`,
+    })
+    .from(applications)
+    .where(isNotNull(applications.seasonId))
+    .groupBy(applications.seasonId);
+  const byId = new Map(counts.map((c) => [c.seasonId, c]));
+
+  return rows.map((r) => ({
+    season: r.season,
+    inventory: r.inventory,
+    vendors: Number(byId.get(r.season.id)?.total ?? 0),
+    paidVendors: Number(byId.get(r.season.id)?.paid ?? 0),
+  }));
+}
+
 export async function getAvailableSeasons() {
   const rows = await db
     .select({
