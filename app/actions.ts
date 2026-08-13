@@ -292,9 +292,9 @@ export async function startCheckout(
     .limit(1);
 
   if (pending) {
-    if (provider.name === "mock") {
-      redirect(`/checkout/mock/${pending.providerRef}`);
-    }
+    // Redirect providers (mock, TechUp) stored a checkout URL — send them back
+    // to it; poll providers go to the confirm/poll page.
+    if (pending.checkoutUrl) redirect(pending.checkoutUrl);
     redirect(`/pay/${applicationId}/confirm`);
   }
 
@@ -315,9 +315,8 @@ export async function startCheckout(
       currency: CURRENCY,
       customerPhone: app.phone,
       customerName,
-      network: app.momoNetwork ?? undefined,
       description: `Matchday ${app.type} payment`,
-      callbackUrl: `${base}/api/payments/eganow/webhook`,
+      callbackUrl: `${base}/api/payments/${provider.name}/webhook`,
     });
   } catch (e) {
     await releaseInventory(app.matchId, app.type);
@@ -328,13 +327,14 @@ export async function startCheckout(
     applicationId,
     provider: provider.name,
     providerRef: result.providerRef,
+    checkoutUrl: result.mode === "redirect" ? result.checkoutUrl : null,
     amountMinor: app.amountMinor,
     status: "pending",
   });
 
-  // Redirect providers (mock) send the user to a checkout page; poll providers
-  // (Eganow MoMo) push a prompt to the phone, so we send them to the confirm
-  // page where we listen for the callback and let them tap "I've paid".
+  // Redirect providers (mock, TechUp) send the user to a hosted checkout; poll
+  // providers push a prompt to the phone, so we route them to the confirm page
+  // where we listen for the callback and let them tap "I've paid".
   if (result.mode === "redirect") {
     redirect(result.checkoutUrl);
   }
@@ -378,11 +378,19 @@ export async function pollPaymentStatus(
     return { status: "paid", qrToken: updated?.qrToken ?? undefined };
   }
   if (status === "failed") {
-    await db
+    // Only the caller that wins the pending -> failed transition releases the
+    // held unit. Without this the webhook and this poll could both observe the
+    // same failure and decrement `sold` twice for one reservation, silently
+    // overselling the fixture. See TD-03.
+    const [transitioned] = await db
       .update(payments)
       .set({ status: "failed" })
-      .where(eq(payments.id, pending.id));
-    await releaseInventory(app.matchId, app.type);
+      .where(and(eq(payments.id, pending.id), eq(payments.status, "pending")))
+      .returning({ id: payments.id });
+
+    if (transitioned && app.status === "awaiting_payment") {
+      await releaseInventory(app.matchId, app.type);
+    }
     return { status: "failed" };
   }
   return { status: "pending" };

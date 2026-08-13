@@ -1,7 +1,7 @@
 // Payment provider abstraction.
-// - "mock" uses an in-app checkout page (redirect) so the flow works with no keys.
-// - "eganow" pushes a MoMo prompt to the customer's phone (poll/callback) — there
-//   is no redirect; we wait for the callback or a status check, first one wins.
+// - "mock"   uses an in-app checkout page (redirect) so the flow works with no keys.
+// - "techup" uses TechupStudio's hosted checkout (redirect) — the customer picks
+//   their method on the provider's page; a callback + status endpoint confirm it.
 
 export interface InitiateParams {
   /** Our transaction id, sent to the provider. */
@@ -10,8 +10,6 @@ export interface InitiateParams {
   currency: string;
   customerPhone: string;
   customerName: string;
-  /** Customer-selected MoMo network ("MTN" | "VODAFONE" | "AIRTELTIGO"). */
-  network?: string;
   description: string;
   /** Where the provider should POST its result. */
   callbackUrl: string;
@@ -19,8 +17,8 @@ export interface InitiateParams {
 
 /**
  * `providerRef` is what we store and reconcile against later (status checks +
- * callback). For mock it's our own reference; for Eganow it's the
- * `eganowReferenceNo` returned by the collection call.
+ * callback). For mock it's our own reference; for TechUp it's the reference the
+ * initiate call returns.
  */
 export type InitiateResult =
   | { mode: "redirect"; checkoutUrl: string; providerRef: string }
@@ -53,21 +51,54 @@ const mockPaymentProvider: PaymentProvider = {
   },
 };
 
-const eganowPaymentProvider: PaymentProvider = {
-  name: "eganow",
+// TechupStudio: hosted-checkout Receive flow — redirect the customer to the
+// returned actionUrl; the callback + status endpoint confirm payment.
+const techupPaymentProvider: PaymentProvider = {
+  name: "techup",
   async initiate(params) {
-    const { initiateCollection } = await import("@/lib/eganow");
-    const providerRef = await initiateCollection(params);
-    return { mode: "poll", providerRef };
+    const { initiatePayment } = await import("@/lib/techup");
+    const { actionUrl, reference } = await initiatePayment({
+      correlationId: params.reference,
+      amountMinor: params.amountMinor,
+      description: params.description,
+      customerName: params.customerName,
+      customerPhone: params.customerPhone,
+      callbackUrl: params.callbackUrl,
+    });
+    return { mode: "redirect", checkoutUrl: actionUrl, providerRef: reference };
   },
   async checkStatus(providerRef) {
-    const { getCollectionStatus } = await import("@/lib/eganow");
-    return getCollectionStatus(providerRef);
+    const { getPaymentStatus } = await import("@/lib/techup");
+    return getPaymentStatus(providerRef);
   },
 };
 
+/**
+ * True when the mock provider is active. The mock reports every payment as
+ * successful, so anything it settles is a simulation — callers use this to make
+ * that unmistakable in the interface. See TD-02.
+ */
+export function isMockPayments(): boolean {
+  return process.env.PAYMENTS_PROVIDER !== "techup";
+}
+
 export function getPaymentProvider(): PaymentProvider {
-  return process.env.PAYMENTS_PROVIDER === "eganow"
-    ? eganowPaymentProvider
-    : mockPaymentProvider;
+  if (process.env.PAYMENTS_PROVIDER === "techup") return techupPaymentProvider;
+
+  // The mock provider's checkStatus() returns "success" unconditionally, so
+  // selecting it in production would issue valid passes to anyone who reaches
+  // the confirm page. Being the default made that a single missing environment
+  // variable away. Demonstration deployments must opt in explicitly. See TD-02.
+  if (
+    process.env.NODE_ENV === "production" &&
+    process.env.ALLOW_MOCK_PAYMENTS !== "true"
+  ) {
+    throw new Error(
+      "Refusing to use the mock payment provider in production. " +
+        "Set PAYMENTS_PROVIDER=techup for real payments, or " +
+        "ALLOW_MOCK_PAYMENTS=true to run an explicit demonstration deployment.",
+    );
+  }
+
+  return mockPaymentProvider;
 }

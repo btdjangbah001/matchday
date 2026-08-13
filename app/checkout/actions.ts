@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { applications, payments } from "@/db/schema";
 import { markPaymentSucceeded, releaseInventory } from "@/lib/orders";
 
-// Simulate a successful payment in development. Mirrors what the real Eganow
+// Simulate a successful payment in development. Mirrors what the real payment
 // webhook does, so the rest of the flow is identical.
 export async function completeMockPayment(formData: FormData): Promise<void> {
   const ref = String(formData.get("ref") ?? "");

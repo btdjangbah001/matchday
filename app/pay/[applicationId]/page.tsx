@@ -4,6 +4,7 @@ import { PayButton } from "@/components/forms/PayButton";
 import { getApplicationWithMatch } from "@/lib/queries";
 import { fixtureTitle, formatKickoff, formatMoney } from "@/lib/format";
 import { TICKET_TYPE_LABELS } from "@/lib/constants";
+import { isMockPayments } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,16 @@ export default async function PayPage({
       <p className="mb-6 text-muted">
         {fixtureTitle(match.team1, match.team2)} · {formatKickoff(match.kickoff)}
       </p>
+
+      {/* The mock provider settles every payment as successful. Say so plainly
+          rather than letting a simulation look like a real transaction (TD-02). */}
+      {isMockPayments() && (
+        <p className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+          <strong className="font-semibold">Demonstration mode.</strong> Payments
+          are simulated — no money changes hands and no mobile-money prompt is
+          sent. Any checkout you complete here will be treated as paid.
+        </p>
+      )}
 
       <Card>
         <div className="mb-4 flex items-center justify-between">
