@@ -1,7 +1,5 @@
 export const PHOTO_CREDITS = [
-  { name: "Austin", url: "https://unsplash.com/@austin_7792" },
-  { name: "Katherine Bandin", url: "https://unsplash.com/@kbandin" },
-  { name: "Allen Boguslavsky", url: "https://unsplash.com/@allenboguslavsky" },
+  { name: "Christian Agbede", url: "https://unsplash.com/@chriscreations__" },
 ] as const;
 
 export const VENUE = {

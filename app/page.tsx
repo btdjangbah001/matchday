@@ -14,9 +14,9 @@ import { getScreenedMatches, getVenueStats } from "@/lib/queries";
 import { displayTeam, formatKickoff, formatMoney } from "@/lib/format";
 import { PHOTO_CREDITS, VENUE } from "@/lib/venue";
 import { Icon } from "@/components/Icons";
-import crowdWatching from "@/assets/images/crowd-watching.jpg";
-import supporters from "@/assets/images/supporters.jpg";
-import bigScreen from "@/assets/images/big-screen.jpg";
+import fansBar from "@/assets/images/fans-bar.jpg";
+import fansCelebrating from "@/assets/images/fans-celebrating.jpg";
+import fansTable from "@/assets/images/fans-table.jpg";
 import type { Inventory, Match } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -215,8 +215,8 @@ export default async function Home() {
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <div className="relative aspect-[3/2] overflow-hidden rounded-2xl border border-border sm:col-span-2 sm:aspect-[2/1]">
                 <Image
-                  src={crowdWatching}
-                  alt="A busy sports bar with screens showing live matches above the counter"
+                  src={fansBar}
+                  alt="Supporters in club shirts and face paint watching a match together over drinks"
                   fill
                   priority
                   placeholder="blur"
@@ -226,8 +226,8 @@ export default async function Home() {
               </div>
               <div className="relative aspect-[3/2] overflow-hidden rounded-2xl border border-border sm:aspect-auto">
                 <Image
-                  src={supporters}
-                  alt="Supporters in club shirts at a bar, a match playing on the screen behind them"
+                  src={fansCelebrating}
+                  alt="Fans on their feet celebrating a goal, arms raised"
                   fill
                   placeholder="blur"
                   sizes="(min-width: 640px) 33vw, 100vw"
@@ -239,8 +239,8 @@ export default async function Home() {
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-border sm:col-span-3 sm:aspect-[32/9]">
                 <Image
-                  src={bigScreen}
-                  alt="The venue interior: long communal tables under strings of warm lights"
+                  src={fansTable}
+                  alt="Three friends leaning over a table, watching a match closely"
                   fill
                   placeholder="blur"
                   sizes="100vw"
