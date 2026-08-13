@@ -7,7 +7,7 @@ import {
   formatKickoffTime,
   formatMoney,
 } from "@/lib/format";
-import { inputClass } from "@/components/ui";
+import { Badge, inputClass } from "@/components/ui";
 
 export interface PickerMatch {
   id: number;
@@ -19,7 +19,7 @@ export interface PickerMatch {
   remaining: number;
 }
 
-const MAX_SHOWN = 60;
+const PAGE = 8;
 
 function toDate(value: string | null): Date | null {
   return value ? new Date(value) : null;
@@ -41,10 +41,13 @@ export function MatchPicker({
   );
   const [query, setQuery] = useState("");
   const [competition, setCompetition] = useState("");
+  const [limit, setLimit] = useState(PAGE);
 
   const competitions = useMemo(
     () =>
-      [...new Set(matches.map((m) => m.competition).filter(Boolean))].sort() as string[],
+      [
+        ...new Set(matches.map((m) => m.competition).filter(Boolean)),
+      ].sort() as string[],
     [matches],
   );
 
@@ -61,7 +64,7 @@ export function MatchPicker({
     });
   }, [matches, query, competition]);
 
-  const shown = filtered.slice(0, MAX_SHOWN);
+  const shown = filtered.slice(0, limit);
   const hidden = filtered.length - shown.length;
 
   const groups = useMemo(() => {
@@ -79,33 +82,31 @@ export function MatchPicker({
 
   if (selected) {
     return (
-      <div className="rounded-xl border border-brand/40 bg-brand/5 p-4">
+      <div className="rounded-2xl border border-brand/40 bg-brand/5 p-5">
         <input type="hidden" name={name} value={selected.id} />
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="font-semibold">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <Badge tone="brand">{selected.competition ?? "Fixture"}</Badge>
+            <p className="mt-2 text-lg font-semibold">
               {displayTeam(selected.team1)}{" "}
               <span className="text-muted">vs</span>{" "}
               {displayTeam(selected.team2)}
             </p>
             <p className="mt-1 text-sm text-muted">
-              {selected.competition ? `${selected.competition} · ` : ""}
               {formatKickoffDay(toDate(selected.kickoff))} ·{" "}
               {formatKickoffTime(toDate(selected.kickoff))}
             </p>
-            <p className="mt-1 text-sm">
-              <span className="font-semibold">
+            <p className="mt-3 text-sm">
+              <span className="text-lg font-semibold">
                 {formatMoney(selected.priceMinor)}
               </span>{" "}
-              <span className="text-muted">
-                · {selected.remaining} left
-              </span>
+              <span className="text-muted">· {selected.remaining} left</span>
             </p>
           </div>
           <button
             type="button"
             onClick={() => setChosen(undefined)}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            className="rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium transition hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
           >
             Change
           </button>
@@ -115,23 +116,30 @@ export function MatchPicker({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <input type="hidden" name={name} value="" />
+
       <div className="flex flex-wrap gap-2">
         <input
           type="search"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setLimit(PAGE);
+          }}
           placeholder="Search a club, e.g. Arsenal"
           aria-label="Search fixtures by club"
-          className={`${inputClass} flex-1 min-w-[12rem]`}
+          className={`${inputClass} min-w-[12rem] flex-1`}
         />
         {competitions.length > 1 && (
           <select
             value={competition}
-            onChange={(e) => setCompetition(e.target.value)}
+            onChange={(e) => {
+              setCompetition(e.target.value);
+              setLimit(PAGE);
+            }}
             aria-label="Filter by competition"
-            className={`${inputClass} sm:w-52`}
+            className={`${inputClass} sm:w-56`}
           >
             <option value="">All competitions</option>
             {competitions.map((c) => (
@@ -144,62 +152,69 @@ export function MatchPicker({
       </div>
 
       {filtered.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted">
-          No fixtures match. Try another club or competition.
-        </p>
+        <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+          <p className="font-medium">No fixtures match</p>
+          <p className="mt-1 text-sm text-muted">
+            Try another club, or clear the competition filter.
+          </p>
+        </div>
       ) : (
-        <div className="max-h-96 space-y-4 overflow-y-auto rounded-xl border border-border p-3">
+        <div className="space-y-6">
           {groups.map(([day, items]) => (
-            <div key={day}>
-              <p className="sticky top-0 bg-surface py-1 text-xs font-semibold uppercase tracking-wider text-muted">
+            <div key={day} className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted">
                 {day}
-              </p>
-              <ul className="mt-1 space-y-1">
-                {items.map((m) => {
-                  const soldOut = m.remaining <= 0;
-                  return (
-                    <li key={m.id}>
-                      <button
-                        type="button"
-                        disabled={soldOut}
-                        onClick={() => setChosen(m.id)}
-                        className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-medium">
-                            {displayTeam(m.team1)}{" "}
-                            <span className="text-muted">vs</span>{" "}
-                            {displayTeam(m.team2)}
-                          </span>
-                          <span className="block text-xs text-muted">
-                            {formatKickoffTime(toDate(m.kickoff))}
-                            {m.competition ? ` · ${m.competition}` : ""}
-                          </span>
-                        </span>
-                        <span className="shrink-0 text-right">
-                          <span className="block text-sm font-semibold">
-                            {formatMoney(m.priceMinor)}
-                          </span>
-                          <span
-                            className={`block text-xs ${soldOut ? "text-red-500" : "text-brand-strong"}`}
-                          >
-                            {soldOut ? "sold out" : `${m.remaining} left`}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              </h3>
+              {items.map((m) => {
+                const soldOut = m.remaining <= 0;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    disabled={soldOut}
+                    onClick={() => setChosen(m.id)}
+                    className="lift block w-full rounded-2xl border border-border bg-surface p-4 text-left shadow-sm hover:border-brand/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-55 disabled:shadow-sm disabled:hover:border-border disabled:hover:shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">
+                          {displayTeam(m.team1)}{" "}
+                          <span className="text-muted">vs</span>{" "}
+                          {displayTeam(m.team2)}
+                        </p>
+                        <p className="mt-1 text-sm text-muted">
+                          {formatKickoffTime(toDate(m.kickoff))}
+                          {m.competition ? ` · ${m.competition}` : ""}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-semibold">
+                          {formatMoney(m.priceMinor)}
+                        </p>
+                        <p
+                          className={`text-xs ${soldOut ? "text-red-500" : "text-brand-strong"}`}
+                        >
+                          {soldOut ? "sold out" : `${m.remaining} left`}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>
       )}
 
       {hidden > 0 && (
-        <p className="text-xs text-muted">
-          Showing {shown.length} of {filtered.length}. Search to narrow it down.
-        </p>
+        <button
+          type="button"
+          onClick={() => setLimit((n) => n + PAGE * 2)}
+          className="w-full rounded-xl border border-border py-2.5 text-sm font-medium transition hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+        >
+          Show {Math.min(hidden, PAGE * 2)} more
+          <span className="text-muted"> · {hidden} not shown</span>
+        </button>
       )}
     </div>
   );

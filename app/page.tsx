@@ -9,8 +9,9 @@ import {
   SiteFooter,
   SiteHeader,
 } from "@/components/ui";
-import { getScreenedMatches } from "@/lib/queries";
+import { getScreenedMatches, getVenueStats } from "@/lib/queries";
 import { displayTeam, formatKickoff, formatMoney } from "@/lib/format";
+import { VENUE } from "@/lib/venue";
 import type { Inventory, Match } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -19,32 +20,11 @@ function stagger(ms: number): CSSProperties {
   return { "--stagger": `${ms}ms` } as CSSProperties;
 }
 
-const OPTIONS = [
-  {
-    href: "/apply/seat",
-    title: "Get a seat",
-    desc: "Reserve a seat to watch the match live at the venue.",
-    emoji: "🎟️",
-  },
-  {
-    href: "/apply/parking",
-    title: "Reserve parking",
-    desc: "Secure a parking space for your car on match day.",
-    emoji: "🅿️",
-  },
-  {
-    href: "/apply/vendor",
-    title: "Apply as a vendor",
-    desc: "Sell food, drinks or merchandise. Subject to approval.",
-    emoji: "🛍️",
-  },
-];
-
 const STEPS = [
   {
     n: "1",
     title: "Pick a fixture",
-    desc: "Choose the game you want to watch and your ticket type.",
+    desc: "Choose the game and whether you want a seat, a parking bay, or both.",
   },
   {
     n: "2",
@@ -65,8 +45,9 @@ function NextUpCard({
   match: Match;
   inventory: Inventory[];
 }) {
-  const minPrice = inventory.length
-    ? Math.min(...inventory.map((i) => i.priceMinor))
+  const bookable = inventory.filter((i) => i.type !== "vendor");
+  const minPrice = bookable.length
+    ? Math.min(...bookable.map((i) => i.priceMinor))
     : 0;
 
   return (
@@ -99,7 +80,10 @@ function NextUpCard({
 }
 
 export default async function Home() {
-  const matches = await getScreenedMatches(7);
+  const [matches, stats] = await Promise.all([
+    getScreenedMatches(7),
+    getVenueStats(),
+  ]);
   const featured = matches[0];
   const rest = matches.slice(1, 5);
 
@@ -111,7 +95,7 @@ export default async function Home() {
         <Container className="grid items-center gap-10 py-16 sm:py-20 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
             <div className="rise">
-              <Badge>Live Football · Watch Centre</Badge>
+              <Badge>Live football · Watch centre</Badge>
             </div>
             <h1
               className="rise mt-4 max-w-2xl text-4xl font-bold tracking-tight sm:text-6xl"
@@ -124,19 +108,50 @@ export default async function Home() {
               className="rise mt-5 max-w-xl text-lg text-muted"
               style={stagger(100)}
             >
-              Premier League, Champions League, La Liga and more on the big
-              screen. Reserve a seat, grab parking, or apply to vend — verify
-              your phone, pay, and get a QR pass to redeem at the gate.
+              One big screen, a seat with your name on it, and parking sorted
+              before you leave the house. Book by mobile money in under two
+              minutes — no account needed.
             </p>
-            <div
-              className="rise mt-8 flex flex-wrap gap-3"
-              style={stagger(140)}
-            >
+            <div className="rise mt-8 flex flex-wrap gap-3" style={stagger(140)}>
               <LinkButton href="/fixtures">Browse fixtures</LinkButton>
-              <LinkButton href="/apply/vendor" variant="ghost">
-                Become a vendor
+              <LinkButton href="#venue" variant="ghost">
+                See the venue
               </LinkButton>
             </div>
+
+            {stats.onSale > 0 && (
+              <dl
+                className="rise mt-10 flex flex-wrap gap-x-10 gap-y-4"
+                style={stagger(180)}
+              >
+                <div>
+                  <dt className="text-xs uppercase tracking-wider text-muted">
+                    Fixtures on sale
+                  </dt>
+                  <dd className="text-2xl font-bold tracking-tight">
+                    {stats.onSale}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wider text-muted">
+                    Competitions
+                  </dt>
+                  <dd className="text-2xl font-bold tracking-tight">
+                    {stats.competitions}
+                  </dd>
+                </div>
+                {stats.seats > 0 && (
+                  <div>
+                    <dt className="text-xs uppercase tracking-wider text-muted">
+                      Seats per screening
+                    </dt>
+                    <dd className="text-2xl font-bold tracking-tight">
+                      {stats.seats}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            )}
           </div>
 
           {featured && (
@@ -147,43 +162,16 @@ export default async function Home() {
 
       <main className="flex-1">
         <Container className="py-14">
-          <div className="grid gap-4 sm:grid-cols-3">
-            {OPTIONS.map((o, i) => (
-              <Link
-                key={o.href}
-                href={o.href}
-                className="lift rise group rounded-2xl border border-border bg-surface p-6 shadow-sm hover:border-brand/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                style={stagger(200 + i * 60)}
-              >
-                <div className="grid h-11 w-11 place-items-center rounded-xl bg-brand/10 text-2xl">
-                  {o.emoji}
-                </div>
-                <h2 className="mt-4 font-semibold group-hover:text-brand-strong">
-                  {o.title}
-                </h2>
-                <p className="mt-1 text-sm text-muted">{o.desc}</p>
-              </Link>
-            ))}
-          </div>
-
-          <section className="mt-16">
-            <h2 className="text-2xl font-bold tracking-tight">How it works</h2>
-            <ol className="mt-6 grid gap-6 sm:grid-cols-3">
-              {STEPS.map((s) => (
-                <li key={s.n}>
-                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand/12 text-sm font-semibold text-brand-strong">
-                    {s.n}
-                  </span>
-                  <h3 className="mt-3 font-semibold">{s.title}</h3>
-                  <p className="mt-1 text-sm text-muted">{s.desc}</p>
-                </li>
-              ))}
-            </ol>
-          </section>
-
-          <section className="mt-16">
+          <section>
             <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-              <h2 className="text-2xl font-bold tracking-tight">What&apos;s on</h2>
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">
+                  What&apos;s on
+                </h2>
+                <p className="mt-1 text-sm text-muted">
+                  Fixtures we&apos;re screening, on sale now.
+                </p>
+              </div>
               <Link
                 href="/fixtures"
                 className="rounded-lg text-sm font-medium text-brand-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -208,6 +196,122 @@ export default async function Home() {
                 ))}
               </div>
             )}
+          </section>
+
+          <section id="venue" className="mt-20 scroll-mt-20">
+            <h2 className="text-2xl font-bold tracking-tight">
+              What it&apos;s like
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              A room built for watching football with other people, rather than
+              a bar with a television in the corner.
+            </p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {VENUE.facilities.map((f) => (
+                <div
+                  key={f.title}
+                  className="rounded-2xl border border-border bg-surface p-5 shadow-sm"
+                >
+                  <span className="text-2xl">{f.emoji}</span>
+                  <h3 className="mt-3 font-semibold">{f.title}</h3>
+                  <p className="mt-1 text-sm text-muted">{f.body}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-20">
+            <h2 className="text-2xl font-bold tracking-tight">How it works</h2>
+            <ol className="mt-6 grid gap-6 sm:grid-cols-3">
+              {STEPS.map((s) => (
+                <li key={s.n}>
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-brand/12 text-sm font-semibold text-brand-strong">
+                    {s.n}
+                  </span>
+                  <h3 className="mt-3 font-semibold">{s.title}</h3>
+                  <p className="mt-1 text-sm text-muted">{s.desc}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          {stats.vendor && (
+            <section className="mt-20">
+              <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+                <div className="grid gap-8 p-7 sm:grid-cols-[1.2fr_0.8fr] sm:p-9">
+                  <div>
+                    <Badge>Vendors · {stats.vendor.seasonName} season</Badge>
+                    <h2 className="mt-3 text-2xl font-bold tracking-tight">
+                      Sell to a full room, every screening
+                    </h2>
+                    <p className="mt-3 max-w-xl text-sm text-muted">
+                      A pitch runs for the whole season, not one match — food,
+                      drinks, merchandise or crafts. Every application is
+                      reviewed before payment, so you know where you stand
+                      before anything is charged.
+                    </p>
+                    <div className="mt-6 flex flex-wrap items-center gap-4">
+                      <LinkButton href="/apply/vendor">
+                        Apply for a pitch
+                      </LinkButton>
+                      <span className="text-sm text-muted">
+                        {stats.vendor.remaining > 0
+                          ? `${stats.vendor.remaining} pitches left`
+                          : "Fully booked this season"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="sm:border-l sm:border-border sm:pl-8">
+                    <p className="text-xs uppercase tracking-wider text-muted">
+                      Season pitch
+                    </p>
+                    <p className="mt-1 text-3xl font-bold tracking-tight">
+                      {formatMoney(stats.vendor.priceMinor)}
+                    </p>
+                    <p className="mt-1 text-sm text-muted">
+                      One payment, every screening in {stats.vendor.seasonName}.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          <section className="mt-20">
+            <h2 className="text-2xl font-bold tracking-tight">Find us</h2>
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+                <h3 className="text-sm font-semibold">Where</h3>
+                <address className="mt-2 text-sm not-italic text-muted">
+                  {VENUE.addressLines.map((line) => (
+                    <span key={line} className="block">
+                      {line}
+                    </span>
+                  ))}
+                </address>
+                <a
+                  href={VENUE.mapsUrl}
+                  className="mt-3 inline-block rounded text-sm font-medium text-brand-strong hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                >
+                  Open in Maps →
+                </a>
+              </div>
+              <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+                <h3 className="text-sm font-semibold">When</h3>
+                <p className="mt-2 text-sm text-muted">{VENUE.doorsOpen}</p>
+                <p className="mt-2 text-sm text-muted">
+                  Check-in opens an hour before kickoff.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border bg-surface p-5 shadow-sm">
+                <h3 className="text-sm font-semibold">Questions</h3>
+                <p className="mt-2 text-sm text-muted">{VENUE.phone}</p>
+                <p className="mt-1 text-sm text-muted">{VENUE.email}</p>
+                <p className="mt-3 text-xs text-muted">
+                  Paid by MTN, Vodafone or AirtelTigo mobile money.
+                </p>
+              </div>
+            </div>
           </section>
         </Container>
       </main>
