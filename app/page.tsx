@@ -13,6 +13,7 @@ import {
 import { getScreenedMatches, getVenueStats } from "@/lib/queries";
 import { displayTeam, formatKickoff, formatMoney } from "@/lib/format";
 import { PHOTO_CREDITS, VENUE } from "@/lib/venue";
+import { Icon } from "@/components/Icons";
 import type { Inventory, Match } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -248,7 +249,7 @@ export default async function Home() {
                   key={f.title}
                   className="rounded-2xl border border-border bg-surface p-5 shadow-sm"
                 >
-                  <span className="text-2xl">{f.emoji}</span>
+                  <Icon name={f.icon} className="h-6 w-6 text-brand-strong" />
                   <h3 className="mt-3 font-semibold">{f.title}</h3>
                   <p className="mt-1 text-sm text-muted">{f.body}</p>
                 </div>

@@ -14,7 +14,7 @@ export interface SmsSender {
 
 const mockSmsSender: SmsSender = {
   async send(to, message) {
-    console.log(`\n📱 [SMS:mock] -> ${to}\n${message}\n`);
+    console.log(`\n[SMS:mock] -> ${to}\n${message}\n`);
     return { ok: true };
   },
 };

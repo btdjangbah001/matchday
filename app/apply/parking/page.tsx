@@ -24,8 +24,7 @@ export default async function ParkingPage({
 
   return (
     <PageShell>
-      <span className="text-4xl">🅿️</span>
-      <h1 className="mt-3 text-3xl font-bold tracking-tight">Reserve parking</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Reserve parking</h1>
       <p className="mb-6 mt-2 text-muted">
         Pick a match, add your car registration, and verify your phone.
       </p>

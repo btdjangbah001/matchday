@@ -54,7 +54,7 @@ export default async function TicketPage({
               {scopeTitle(match, season)}
             </p>
             <p className="text-muted">{scopeSubtitle(match, season)}</p>
-            {match?.venue && <p className="text-muted">📍 {match.venue}</p>}
+            {match?.venue && <p className="text-muted">{match.venue}</p>}
             {app.type === "parking" && app.carRegistration && (
               <p className="mt-2">
                 Car: <span className="font-medium">{app.carRegistration}</span>
