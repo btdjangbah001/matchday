@@ -1,13 +1,13 @@
 import { eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { applications, matches, payments, seasons } from "@/db/schema";
-import { Card, PageShell } from "@/components/ui";
+import { Card, LinkButton, NotFoundScreen, PageShell } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { completeMockPayment, cancelMockPayment } from "@/app/checkout/actions";
 import { formatMoney, scopeTitle } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+export const metadata = { robots: { index: false, follow: false } };
 
 export default async function MockCheckoutPage({
   params,
@@ -29,7 +29,19 @@ export default async function MockCheckoutPage({
     .leftJoin(seasons, eq(applications.seasonId, seasons.id))
     .where(eq(payments.providerRef, ref))
     .limit(1);
-  if (!row) notFound();
+  if (!row) {
+    return (
+      <NotFoundScreen
+        title="We couldn't find that payment"
+        message="This checkout link has no payment attached to it. It may have already been completed or cancelled, or the link may be incomplete."
+      >
+        <LinkButton href="/account">Find my bookings</LinkButton>
+        <LinkButton href="/" variant="ghost">
+          Back to home
+        </LinkButton>
+      </NotFoundScreen>
+    );
+  }
 
   return (
     <PageShell>

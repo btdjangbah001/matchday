@@ -1,9 +1,10 @@
-import { notFound, redirect } from "next/navigation";
-import { Card, PageShell } from "@/components/ui";
+import { redirect } from "next/navigation";
+import { Card, LinkButton, NotFoundScreen, PageShell } from "@/components/ui";
 import { VerifyForm } from "@/components/forms/VerifyForm";
 import { getApplication } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
+export const metadata = { robots: { index: false, follow: false } };
 
 function maskPhone(phone: string): string {
   return phone.replace(/^(\+\d{3})\d+(\d{2})$/, "$1•••••$2");
@@ -16,7 +17,19 @@ export default async function VerifyPage({
 }) {
   const { applicationId } = await params;
   const app = await getApplication(applicationId);
-  if (!app) notFound();
+  if (!app) {
+    return (
+      <NotFoundScreen
+        title="We couldn't find that application"
+        message="This verification link doesn't match an application we hold. It may have expired, or the link may be incomplete. Starting again takes under a minute."
+      >
+        <LinkButton href="/fixtures">Browse fixtures</LinkButton>
+        <LinkButton href="/account" variant="ghost">
+          Find my bookings
+        </LinkButton>
+      </NotFoundScreen>
+    );
+  }
 
   // Already past verification — send them to the next step.
   if (app.status !== "pending_otp") {

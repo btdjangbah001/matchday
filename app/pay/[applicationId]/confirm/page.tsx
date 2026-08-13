@@ -1,10 +1,11 @@
-import { notFound, redirect } from "next/navigation";
-import { Card, PageShell } from "@/components/ui";
+import { redirect } from "next/navigation";
+import { Card, LinkButton, NotFoundScreen, PageShell } from "@/components/ui";
 import { PaymentConfirm } from "@/components/forms/PaymentConfirm";
 import { getApplicationWithMatch } from "@/lib/queries";
 import { formatMoney, scopeTitle } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+export const metadata = { robots: { index: false, follow: false } };
 
 function maskPhone(phone: string): string {
   return phone.replace(/^(\+\d{3})\d+(\d{2})$/, "$1•••••$2");
@@ -17,7 +18,19 @@ export default async function ConfirmPaymentPage({
 }) {
   const { applicationId } = await params;
   const row = await getApplicationWithMatch(applicationId);
-  if (!row) notFound();
+  if (!row) {
+    return (
+      <NotFoundScreen
+        title="We couldn't find that booking"
+        message="This payment link doesn't match a booking we hold. Sign in with your phone number to see everything booked on it."
+      >
+        <LinkButton href="/account">Find my bookings</LinkButton>
+        <LinkButton href="/fixtures" variant="ghost">
+          Browse fixtures
+        </LinkButton>
+      </NotFoundScreen>
+    );
+  }
   const { application: app, match, season } = row;
 
   if ((app.status === "paid" || app.status === "checked_in") && app.qrToken) {
