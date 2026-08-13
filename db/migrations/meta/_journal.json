@@ -22,6 +22,27 @@
       "when": 1786531492793,
       "tag": "0002_oval_radioactive_man",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786536726604,
+      "tag": "0003_icy_master_chief",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786550530628,
+      "tag": "0004_panoramic_fantastic_four",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786552211124,
+      "tag": "0005_closed_goliath",
+      "breakpoints": true
     }
   ]
 }
