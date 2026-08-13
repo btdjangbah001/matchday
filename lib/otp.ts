@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { otpCodes } from "@/db/schema";
@@ -19,11 +19,14 @@ export class OtpSendError extends Error {
   }
 }
 
-type Purpose = "application" | "staff_login";
+type Purpose = "application" | "staff_login" | "customer_login";
 
 function generateCode(): string {
-  // 6-digit numeric code, zero-padded.
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // 6-digit numeric code. Uses the CSPRNG, not Math.random(): possession of this
+  // code is the only identity proof in the system — for customers *and* for
+  // back-office staff — and V8's PRNG state is recoverable from observed output.
+  // See TD-04.
+  return String(randomInt(100000, 1000000));
 }
 
 function hashCode(phone: string, code: string): string {
