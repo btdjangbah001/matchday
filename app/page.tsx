@@ -14,6 +14,9 @@ import { getScreenedMatches, getVenueStats } from "@/lib/queries";
 import { displayTeam, formatKickoff, formatMoney } from "@/lib/format";
 import { PHOTO_CREDITS, VENUE } from "@/lib/venue";
 import { Icon } from "@/components/Icons";
+import crowdWatching from "@/assets/images/crowd-watching.jpg";
+import supporters from "@/assets/images/supporters.jpg";
+import bigScreen from "@/assets/images/big-screen.jpg";
 import type { Inventory, Match } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
@@ -212,19 +215,21 @@ export default async function Home() {
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               <div className="relative aspect-[3/2] overflow-hidden rounded-2xl border border-border sm:col-span-2 sm:aspect-[2/1]">
                 <Image
-                  src="/images/crowd-watching.jpg"
-                  alt="A packed street café at night, every chair turned towards a screen showing a live football match"
+                  src={crowdWatching}
+                  alt="A busy sports bar with screens showing live matches above the counter"
                   fill
                   priority
+                  placeholder="blur"
                   sizes="(min-width: 640px) 66vw, 100vw"
                   className="object-cover"
                 />
               </div>
               <div className="relative aspect-[3/2] overflow-hidden rounded-2xl border border-border sm:aspect-auto">
                 <Image
-                  src="/images/supporters.jpg"
-                  alt="Three supporters in club shirts watching a match together"
+                  src={supporters}
+                  alt="Supporters in club shirts at a bar, a match playing on the screen behind them"
                   fill
+                  placeholder="blur"
                   sizes="(min-width: 640px) 33vw, 100vw"
                   className="object-cover"
                 />
@@ -234,9 +239,10 @@ export default async function Home() {
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div className="relative aspect-[16/9] overflow-hidden rounded-2xl border border-border sm:col-span-3 sm:aspect-[32/9]">
                 <Image
-                  src="/images/big-screen.jpg"
-                  alt="A full auditorium of seated people, all facing one large screen"
+                  src={bigScreen}
+                  alt="The venue interior: long communal tables under strings of warm lights"
                   fill
+                  placeholder="blur"
                   sizes="100vw"
                   className="object-cover"
                 />
