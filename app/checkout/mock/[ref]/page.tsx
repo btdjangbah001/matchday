@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db } from "@/db";
-import { applications, matches, payments } from "@/db/schema";
+import { applications, matches, payments, seasons } from "@/db/schema";
 import { Card, PageShell } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { completeMockPayment, cancelMockPayment } from "@/app/checkout/actions";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, scopeTitle } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +17,16 @@ export default async function MockCheckoutPage({
   const { ref } = await params;
 
   const [row] = await db
-    .select({ payment: payments, application: applications, match: matches })
+    .select({
+      payment: payments,
+      application: applications,
+      match: matches,
+      season: seasons,
+    })
     .from(payments)
     .innerJoin(applications, eq(payments.applicationId, applications.id))
-    .innerJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(seasons, eq(applications.seasonId, seasons.id))
     .where(eq(payments.providerRef, ref))
     .limit(1);
   if (!row) notFound();
@@ -33,7 +39,7 @@ export default async function MockCheckoutPage({
         </p>
         <Card className="text-center">
           <p className="text-sm text-muted">
-            {row.match.team1} vs {row.match.team2}
+            {scopeTitle(row.match, row.season)}
           </p>
           <p className="my-3 text-3xl font-bold">
             {formatMoney(row.payment.amountMinor)}
