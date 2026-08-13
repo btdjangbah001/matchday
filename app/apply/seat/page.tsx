@@ -24,8 +24,7 @@ export default async function SeatPage({
 
   return (
     <PageShell>
-      <span className="text-4xl">🎟️</span>
-      <h1 className="mt-3 text-3xl font-bold tracking-tight">Get a seat</h1>
+      <h1 className="text-3xl font-bold tracking-tight">Get a seat</h1>
       <p className="mb-6 mt-2 text-muted">
         Pick a match and verify your phone. You&apos;ll pay to confirm your seat.
       </p>

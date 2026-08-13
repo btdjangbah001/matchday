@@ -35,7 +35,7 @@ export default async function VendorsPage() {
 
         {pending.length === 0 ? (
           <p className="text-sm text-muted">
-            No vendor applications awaiting review. 🎉
+            No vendor applications awaiting review.
           </p>
         ) : (
           <ul className="space-y-3">

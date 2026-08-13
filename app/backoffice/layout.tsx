@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LogoMark } from "@/components/Logo";
 import type { ReactNode } from "react";
 import { getStaffSession } from "@/lib/session";
 import { logout } from "@/app/backoffice/actions";
@@ -27,9 +28,7 @@ export default async function BackofficeLayout({
       <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-3">
           <Link href="/backoffice" className="flex items-center gap-2 font-semibold">
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-brand text-white">
-              ⚽
-            </span>
+            <LogoMark className="h-6 w-6 text-brand" />
             Matchday <span className="text-muted">Back Office</span>
           </Link>
           {session && (

@@ -1,7 +1,7 @@
 export const PHOTO_CREDITS = [
-  { name: "Fatih Beki", url: "https://unsplash.com/@mfbeki" },
-  { name: "Christian Agbede", url: "https://unsplash.com/@chriscreations__" },
-  { name: "Krists Luhaers", url: "https://unsplash.com/@kristsll" },
+  { name: "Austin", url: "https://unsplash.com/@austin_7792" },
+  { name: "Katherine Bandin", url: "https://unsplash.com/@kbandin" },
+  { name: "Allen Boguslavsky", url: "https://unsplash.com/@allenboguslavsky" },
 ] as const;
 
 export const VENUE = {
@@ -13,22 +13,22 @@ export const VENUE = {
   doorsOpen: "Doors open 45 minutes before kickoff",
   facilities: [
     {
-      emoji: "📺",
+      icon: "screen",
       title: "One big screen",
       body: "Every seat faces it. No craning, no split attention, no muted commentary.",
     },
     {
-      emoji: "🪑",
+      icon: "seat",
       title: "A seat that is yours",
       body: "Booked ahead and held for you, so arriving late costs you nothing.",
     },
     {
-      emoji: "🍢",
+      icon: "food",
       title: "Food and drink",
       body: "Independent vendors on site through the season. Bring an appetite.",
     },
     {
-      emoji: "🅿️",
+      icon: "parking",
       title: "Parking on site",
       body: "A reserved bay, booked with your seat. No circling the block at kickoff.",
     },

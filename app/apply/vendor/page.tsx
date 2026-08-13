@@ -23,8 +23,7 @@ export default async function VendorPage({
 
   return (
     <PageShell>
-      <span className="text-4xl">🛍️</span>
-      <h1 className="mt-3 text-3xl font-bold tracking-tight">
+      <h1 className="text-3xl font-bold tracking-tight">
         Apply as a vendor
       </h1>
       <p className="mb-6 mt-2 text-muted">
