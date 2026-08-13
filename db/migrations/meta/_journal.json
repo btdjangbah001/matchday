@@ -50,6 +50,13 @@
       "when": 1786628371776,
       "tag": "0006_pink_killer_shrike",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786630375435,
+      "tag": "0007_black_gideon",
+      "breakpoints": true
     }
   ]
 }

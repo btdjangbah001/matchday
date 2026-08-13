@@ -28,5 +28,8 @@ try {
   // No .env; the suite fails its own guard with a clearer message.
 }
 
-process.env.PAYMENTS_PROVIDER ??= "mock";
-process.env.SMS_PROVIDER ??= "mock";
+// Forced, not defaulted: .env may point at live Arkesel and a real payment
+// provider, and no test run should ever reach either.
+process.env.PAYMENTS_PROVIDER = "mock";
+process.env.SMS_PROVIDER = "mock";
+process.env.ARKESEL_API_KEY = "";

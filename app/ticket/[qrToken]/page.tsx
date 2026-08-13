@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { Card, PageShell, StatusPill } from "@/components/ui";
 import { getApplicationByQrToken } from "@/lib/queries";
-import { fixtureTitle, formatKickoff } from "@/lib/format";
+import { scopeSubtitle, scopeTitle } from "@/lib/format";
 import { TICKET_TYPE_LABELS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export default async function TicketPage({
   const { qrToken } = await params;
   const row = await getApplicationByQrToken(qrToken);
   if (!row) notFound();
-  const { application: app, match } = row;
+  const { application: app, match, season } = row;
 
   const qrDataUrl = await QRCode.toDataURL(qrToken, { width: 320, margin: 1 });
 
@@ -51,10 +51,10 @@ export default async function TicketPage({
 
           <div className="mt-6 border-t border-border pt-4 text-sm">
             <p className="text-base font-semibold">
-              {fixtureTitle(match.team1, match.team2)}
+              {scopeTitle(match, season)}
             </p>
-            <p className="text-muted">{formatKickoff(match.kickoff)}</p>
-            {match.venue && <p className="text-muted">📍 {match.venue}</p>}
+            <p className="text-muted">{scopeSubtitle(match, season)}</p>
+            {match?.venue && <p className="text-muted">📍 {match.venue}</p>}
             {app.type === "parking" && app.carRegistration && (
               <p className="mt-2">
                 Car: <span className="font-medium">{app.carRegistration}</span>

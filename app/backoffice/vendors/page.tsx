@@ -3,8 +3,8 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { requireStaff } from "@/lib/session";
 import { getReviewedVendors, getVendorsAwaitingReview } from "@/lib/queries";
 import { approveVendor, rejectVendor } from "@/app/backoffice/actions";
-import { fixtureTitle, formatKickoff, formatMoney } from "@/lib/format";
-import type { Application, Match } from "@/db/schema";
+import { formatMoney, scopeSubtitle, scopeTitle } from "@/lib/format";
+import type { Application, Season } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -15,12 +15,12 @@ export default async function VendorsPage() {
     getReviewedVendors(),
   ]);
 
-  // Group reviewed vendors by match (schedule).
-  const groups = new Map<number, { match: Match; apps: Application[] }>();
-  for (const { application, match } of reviewed) {
-    const g = groups.get(match.id) ?? { match, apps: [] };
+  const groups = new Map<number, { season: Season | null; apps: Application[] }>();
+  for (const { application, season } of reviewed) {
+    const key = season?.id ?? 0;
+    const g = groups.get(key) ?? { season, apps: [] };
     g.apps.push(application);
-    groups.set(match.id, g);
+    groups.set(key, g);
   }
 
   return (
@@ -39,7 +39,7 @@ export default async function VendorsPage() {
           </p>
         ) : (
           <ul className="space-y-3">
-            {pending.map(({ application: app, match }) => (
+            {pending.map(({ application: app, match, season }) => (
               <li key={app.id}>
                 <Card>
                   <div className="flex flex-wrap items-start justify-between gap-4">
@@ -51,8 +51,8 @@ export default async function VendorsPage() {
                         {app.vendorType} · {app.phone}
                       </p>
                       <p className="mt-1 text-sm text-muted">
-                        {fixtureTitle(match.team1, match.team2)} ·{" "}
-                        {formatKickoff(match.kickoff)}
+                        {scopeTitle(match, season)} ·{" "}
+                        {scopeSubtitle(match, season)}
                       </p>
                       <p className="mt-1 text-sm text-muted">
                         Fee: {formatMoney(app.amountMinor)}
@@ -90,14 +90,14 @@ export default async function VendorsPage() {
           <p className="text-sm text-muted">No vendors reviewed yet.</p>
         ) : (
           <div className="space-y-4">
-            {[...groups.values()].map(({ match, apps }) => (
-              <Card key={match.id}>
+            {[...groups.values()].map(({ season, apps }) => (
+              <Card key={season?.id ?? 0}>
                 <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-semibold">
-                    {fixtureTitle(match.team1, match.team2)}
+                    {scopeTitle(null, season)}
                   </span>
                   <span className="text-sm text-muted">
-                    {formatKickoff(match.kickoff)} · {apps.length} vendor
+                    {scopeSubtitle(null, season)} · {apps.length} vendor
                     {apps.length === 1 ? "" : "s"}
                   </span>
                 </div>

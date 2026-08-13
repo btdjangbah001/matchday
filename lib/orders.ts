@@ -7,6 +7,7 @@ import {
   matches,
   payments,
   reservations,
+  seasons,
 } from "@/db/schema";
 import type { Application, TicketType } from "@/db/schema";
 import { generateCheckInCode, generateQrToken } from "@/lib/codes";
@@ -26,15 +27,33 @@ async function decrementSold(inventoryId: number): Promise<void> {
     .where(and(eq(inventory.id, inventoryId), sql`${inventory.sold} > 0`));
 }
 
+export function inventoryScope(app: {
+  matchId: number | null;
+  seasonId: number | null;
+  type: TicketType;
+}) {
+  return and(
+    app.matchId != null
+      ? eq(inventory.matchId, app.matchId)
+      : eq(inventory.seasonId, app.seasonId!),
+    eq(inventory.type, app.type),
+  );
+}
+
 export async function reserveForApplication(
   applicationId: string,
-  matchId: number,
-  type: TicketType,
 ): Promise<{ priceMinor: number } | null> {
+  const [app] = await db
+    .select()
+    .from(applications)
+    .where(eq(applications.id, applicationId))
+    .limit(1);
+  if (!app) return null;
+
   const [inv] = await db
     .select()
     .from(inventory)
-    .where(and(eq(inventory.matchId, matchId), eq(inventory.type, type)))
+    .where(inventoryScope(app))
     .limit(1);
   if (!inv) return null;
 
@@ -161,6 +180,29 @@ export async function sweepExpiredReservations(): Promise<number> {
   return expired.length;
 }
 
+async function describeScope(app: {
+  matchId: number | null;
+  seasonId: number | null;
+}): Promise<string> {
+  if (app.matchId != null) {
+    const [match] = await db
+      .select()
+      .from(matches)
+      .where(eq(matches.id, app.matchId))
+      .limit(1);
+    return match ? fixtureTitle(match.team1, match.team2) : "your match";
+  }
+  if (app.seasonId != null) {
+    const [season] = await db
+      .select()
+      .from(seasons)
+      .where(eq(seasons.id, app.seasonId))
+      .limit(1);
+    return season ? `the ${season.name} season` : "the season";
+  }
+  return "your booking";
+}
+
 export async function markPaymentSucceeded(
   providerRef: string,
 ): Promise<Application | null> {
@@ -205,15 +247,7 @@ export async function markPaymentSucceeded(
 
   await consumeReservation(app.id);
 
-  const [match] = await db
-    .select()
-    .from(matches)
-    .where(eq(matches.id, updated.matchId))
-    .limit(1);
-
-  const fixture = match
-    ? fixtureTitle(match.team1, match.team2)
-    : "your match";
+  const fixture = await describeScope(updated);
   await sendSms(
     updated.phone,
     `Payment confirmed for ${fixture}. Check-in code: ${checkInCode}. ` +

@@ -30,6 +30,30 @@ export function fixtureTitle(team1: string, team2: string): string {
   return `${displayTeam(team1)} vs ${displayTeam(team2)}`;
 }
 
+export function scopeTitle(
+  match: { team1: string; team2: string } | null,
+  season: { name: string } | null,
+): string {
+  if (match) return fixtureTitle(match.team1, match.team2);
+  if (season) return `${season.name} season`;
+  return "Booking";
+}
+
+export function scopeSubtitle(
+  match: { competition: string | null; kickoff: Date | null } | null,
+  season: { startsAt: Date; endsAt: Date } | null,
+): string {
+  if (match) {
+    return [match.competition, formatKickoff(match.kickoff)]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  if (season) {
+    return `All screenings · ${formatKickoff(season.startsAt)} to ${formatKickoff(season.endsAt)}`;
+  }
+  return "";
+}
+
 export function formatKickoff(kickoff: Date | null): string {
   if (!kickoff) return "Date TBD";
   return new Intl.DateTimeFormat("en-GB", {

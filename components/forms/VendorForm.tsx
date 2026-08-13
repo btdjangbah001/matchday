@@ -6,8 +6,8 @@ import { SubmitButton } from "@/components/SubmitButton";
 import {
   Field,
   FormError,
-  MatchSelect,
   NetworkSelect,
+  ScopeSelect,
   inputClass,
 } from "@/components/ui";
 import { VENDOR_TYPES } from "@/lib/constants";
@@ -26,8 +26,13 @@ export function VendorForm({
 
   return (
     <form action={action} className="space-y-4">
-      <Field label="Match">
-        <MatchSelect options={options} selectedId={selectedId} />
+      <Field label="Season" hint="Your pitch covers every screening in it.">
+        <ScopeSelect
+          name="seasonId"
+          placeholder="Select a season…"
+          options={options}
+          selectedId={selectedId}
+        />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="First name">

@@ -37,7 +37,7 @@ describe("inventory holds", () => {
     const f = await createFixture({ seat: { price: 5000, capacity: 3 } });
     const app = await makeApplication(f.matchId, "seat");
 
-    const held = await reserveForApplication(app, f.matchId, "seat");
+    const held = await reserveForApplication(app);
 
     expect(held).toEqual({ priceMinor: 5000 });
     expect((await readInventory(f.matchId, "seat")).sold).toBe(1);
@@ -48,8 +48,8 @@ describe("inventory holds", () => {
     const first = await makeApplication(f.matchId, "seat");
     const second = await makeApplication(f.matchId, "seat");
 
-    expect(await reserveForApplication(first, f.matchId, "seat")).not.toBeNull();
-    expect(await reserveForApplication(second, f.matchId, "seat")).toBeNull();
+    expect(await reserveForApplication(first)).not.toBeNull();
+    expect(await reserveForApplication(second)).toBeNull();
     expect((await readInventory(f.matchId, "seat")).sold).toBe(1);
   });
 
@@ -57,9 +57,9 @@ describe("inventory holds", () => {
     const f = await createFixture({ seat: { price: 5000, capacity: 5 } });
     const app = await makeApplication(f.matchId, "seat");
 
-    await reserveForApplication(app, f.matchId, "seat");
-    await reserveForApplication(app, f.matchId, "seat");
-    await reserveForApplication(app, f.matchId, "seat");
+    await reserveForApplication(app);
+    await reserveForApplication(app);
+    await reserveForApplication(app);
 
     expect((await readInventory(f.matchId, "seat")).sold).toBe(1);
   });
@@ -70,8 +70,8 @@ describe("inventory holds", () => {
     const b = await makeApplication(f.matchId, "seat");
 
     const [ra, rb] = await Promise.all([
-      reserveForApplication(a, f.matchId, "seat"),
-      reserveForApplication(b, f.matchId, "seat"),
+      reserveForApplication(a),
+      reserveForApplication(b),
     ]);
 
     expect([ra, rb].filter(Boolean)).toHaveLength(1);
@@ -84,7 +84,7 @@ describe("releasing a hold", () => {
     const f = await createFixture({ seat: { price: 5000, capacity: 2 } });
     const app = await makeApplication(f.matchId, "seat");
 
-    await reserveForApplication(app, f.matchId, "seat");
+    await reserveForApplication(app);
     await releaseForApplication(app);
 
     expect((await readInventory(f.matchId, "seat")).sold).toBe(0);
@@ -95,8 +95,8 @@ describe("releasing a hold", () => {
     const failing = await makeApplication(f.matchId, "seat");
     const holding = await makeApplication(f.matchId, "seat");
 
-    await reserveForApplication(failing, f.matchId, "seat");
-    await reserveForApplication(holding, f.matchId, "seat");
+    await reserveForApplication(failing);
+    await reserveForApplication(holding);
     expect((await readInventory(f.matchId, "seat")).sold).toBe(2);
 
     await releaseForApplication(failing);
@@ -109,7 +109,7 @@ describe("releasing a hold", () => {
   it("survives both failure paths firing at once", async () => {
     const f = await createFixture({ seat: { price: 5000, capacity: 2 } });
     const app = await makeApplication(f.matchId, "seat");
-    await reserveForApplication(app, f.matchId, "seat");
+    await reserveForApplication(app);
 
     await Promise.all([
       releaseForApplication(app),
@@ -123,7 +123,7 @@ describe("releasing a hold", () => {
     const f = await createFixture({ seat: { price: 5000, capacity: 2 } });
     const app = await makeApplication(f.matchId, "seat");
 
-    await reserveForApplication(app, f.matchId, "seat");
+    await reserveForApplication(app);
     await consumeReservation(app);
     await releaseForApplication(app);
 
@@ -136,7 +136,7 @@ describe("abandoned checkouts", () => {
     const f = await createFixture({ seat: { price: 5000, capacity: 1 } });
     const app = await makeApplication(f.matchId, "seat");
 
-    await reserveForApplication(app, f.matchId, "seat");
+    await reserveForApplication(app);
     expect((await readInventory(f.matchId, "seat")).sold).toBe(1);
 
     await db
@@ -153,14 +153,14 @@ describe("abandoned checkouts", () => {
     const abandoner = await makeApplication(f.matchId, "seat");
     const buyer = await makeApplication(f.matchId, "seat");
 
-    await reserveForApplication(abandoner, f.matchId, "seat");
+    await reserveForApplication(abandoner);
     await db
       .update(reservations)
       .set({ expiresAt: new Date(Date.now() - 60_000) })
       .where(eq(reservations.applicationId, abandoner));
 
     expect(
-      await reserveForApplication(buyer, f.matchId, "seat"),
+      await reserveForApplication(buyer),
     ).not.toBeNull();
     expect((await readInventory(f.matchId, "seat")).sold).toBe(1);
   });
@@ -169,7 +169,7 @@ describe("abandoned checkouts", () => {
     const f = await createFixture({ seat: { price: 5000, capacity: 2 } });
     const app = await makeApplication(f.matchId, "seat");
 
-    await reserveForApplication(app, f.matchId, "seat");
+    await reserveForApplication(app);
 
     expect(await sweepExpiredReservations()).toBe(0);
     expect((await readInventory(f.matchId, "seat")).sold).toBe(1);
@@ -179,7 +179,7 @@ describe("abandoned checkouts", () => {
     const f = await createFixture({ seat: { price: 5000, capacity: 1 } });
     const app = await makeApplication(f.matchId, "seat");
 
-    await reserveForApplication(app, f.matchId, "seat");
+    await reserveForApplication(app);
     await consumeReservation(app);
     await db
       .update(reservations)

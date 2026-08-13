@@ -4,7 +4,14 @@ import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { applications, competitions, inventory, matches, staff } from "@/db/schema";
+import {
+  applications,
+  competitions,
+  inventory,
+  matches,
+  seasons,
+  staff,
+} from "@/db/schema";
 import { issueOtp, verifyOtp } from "@/lib/otp";
 import {
   createStaffSession,
@@ -13,7 +20,7 @@ import {
 } from "@/lib/session";
 import { syncCompetitionById, syncSchedules } from "@/lib/schedule";
 import { normalizeCheckInCode } from "@/lib/codes";
-import { fixtureTitle, formatKickoff } from "@/lib/format";
+import { formatKickoff, scopeTitle } from "@/lib/format";
 import { normalizePhone } from "@/lib/phone";
 import { sendSms } from "@/lib/sms";
 
@@ -168,17 +175,24 @@ export async function checkIn(
     : eq(applications.checkInCode, normalizeCheckInCode(raw));
 
   const [row] = await db
-    .select({ application: applications, match: matches })
+    .select({ application: applications, match: matches, season: seasons })
     .from(applications)
-    .innerJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(matches, eq(applications.matchId, matches.id))
+    .leftJoin(seasons, eq(applications.seasonId, seasons.id))
     .where(condition)
     .limit(1);
 
   if (!row) return { error: "No matching pass found." };
-  const { application: app, match } = row;
-  const fixture = fixtureTitle(match.team1, match.team2);
+  const { application: app, match, season } = row;
+  const fixture = scopeTitle(match, season);
   const name =
     [app.firstName, app.lastName].filter(Boolean).join(" ") || app.phone;
+
+  if (app.type === "vendor") {
+    return {
+      error: `${name} holds a ${fixture} vendor pitch. Vendor passes are not scanned at the gate.`,
+    };
+  }
 
   if (app.status === "checked_in") {
     return { error: `Already checked in: ${name} (${fixture}).` };
@@ -188,7 +202,7 @@ export async function checkIn(
   }
 
   // Check-in only opens a configurable window before kickoff (default 60 min).
-  if (match.kickoff) {
+  if (match?.kickoff) {
     const raw = process.env.CHECKIN_WINDOW_MINUTES;
     const windowMinutes =
       raw != null && raw.trim() !== "" && Number.isFinite(Number(raw))

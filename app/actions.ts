@@ -26,15 +26,22 @@ const ACTIVE_STATUSES = [
   "checked_in",
 ] as const;
 
+interface Scope {
+  matchId?: number;
+  seasonId?: number;
+}
+
 async function findActiveDuplicate(
   phone: string,
-  matchId: number,
+  scope: Scope,
   type: TicketType,
   excludeId?: string,
 ): Promise<boolean> {
   const conds = [
     eq(applications.phone, phone),
-    eq(applications.matchId, matchId),
+    scope.matchId != null
+      ? eq(applications.matchId, scope.matchId)
+      : eq(applications.seasonId, scope.seasonId!),
     eq(applications.type, type),
     inArray(applications.status, [...ACTIVE_STATUSES]),
   ];
@@ -64,7 +71,7 @@ function firstError(error: { issues: { message: string }[] }): string {
 
 async function startApplication(
   type: TicketType,
-  matchId: number,
+  scope: Scope,
   fields: {
     phone: string;
     network: string;
@@ -77,19 +84,27 @@ async function startApplication(
   const [inv] = await db
     .select()
     .from(inventory)
-    .where(and(eq(inventory.matchId, matchId), eq(inventory.type, type)))
+    .where(
+      and(
+        scope.matchId != null
+          ? eq(inventory.matchId, scope.matchId)
+          : eq(inventory.seasonId, scope.seasonId!),
+        eq(inventory.type, type),
+      ),
+    )
     .limit(1);
 
+  const what = scope.matchId != null ? "match" : "season";
   if (!inv || inv.capacity <= 0) {
-    throw new Error("This option is not available for the selected match.");
+    throw new Error(`This option is not available for the selected ${what}.`);
   }
   if (inv.sold >= inv.capacity) {
-    throw new Error("Sorry, this option is sold out for the selected match.");
+    throw new Error(`Sorry, this option is sold out for the selected ${what}.`);
   }
 
-  if (await findActiveDuplicate(fields.phone, matchId, type)) {
+  if (await findActiveDuplicate(fields.phone, scope, type)) {
     throw new Error(
-      `This number already has a ${TICKET_TYPE_LABELS[type].toLowerCase()} booking for this match.`,
+      `This number already has a ${TICKET_TYPE_LABELS[type].toLowerCase()} booking for this ${what}.`,
     );
   }
 
@@ -97,7 +112,8 @@ async function startApplication(
     .insert(applications)
     .values({
       type,
-      matchId,
+      matchId: scope.matchId ?? null,
+      seasonId: scope.seasonId ?? null,
       phone: fields.phone,
       momoNetwork: fields.network,
       firstName: fields.firstName ?? null,
@@ -127,7 +143,7 @@ export async function applyForSeat(
 
   let id: string;
   try {
-    id = await startApplication("seat", parsed.data.matchId, {
+    id = await startApplication("seat", { matchId: parsed.data.matchId }, {
       phone: parsed.data.phone,
       network: parsed.data.network,
     });
@@ -146,7 +162,7 @@ export async function applyForParking(
 
   let id: string;
   try {
-    id = await startApplication("parking", parsed.data.matchId, {
+    id = await startApplication("parking", { matchId: parsed.data.matchId }, {
       phone: parsed.data.phone,
       network: parsed.data.network,
       carRegistration: parsed.data.carRegistration,
@@ -166,7 +182,7 @@ export async function applyForVendor(
 
   let id: string;
   try {
-    id = await startApplication("vendor", parsed.data.matchId, {
+    id = await startApplication("vendor", { seasonId: parsed.data.seasonId }, {
       phone: parsed.data.phone,
       network: parsed.data.network,
       firstName: parsed.data.firstName,
@@ -213,7 +229,12 @@ export async function verifyApplicationOtp(
 
   if (
     app.status === "pending_otp" &&
-    (await findActiveDuplicate(app.phone, app.matchId, app.type, applicationId))
+    (await findActiveDuplicate(
+      app.phone,
+      { matchId: app.matchId ?? undefined, seasonId: app.seasonId ?? undefined },
+      app.type,
+      applicationId,
+    ))
   ) {
     await db
       .update(applications)
@@ -222,7 +243,7 @@ export async function verifyApplicationOtp(
     return {
       error: `This number already has a ${TICKET_TYPE_LABELS[
         app.type
-      ].toLowerCase()} booking for this match.`,
+      ].toLowerCase()} booking already.`,
     };
   }
 
@@ -293,11 +314,7 @@ export async function startCheckout(
     redirect(`/pay/${applicationId}/confirm`);
   }
 
-  const reserved = await reserveForApplication(
-    applicationId,
-    app.matchId,
-    app.type,
-  );
+  const reserved = await reserveForApplication(applicationId);
   if (!reserved) {
     return { error: "Sorry, this option just sold out." };
   }

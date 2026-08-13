@@ -1,7 +1,7 @@
 import { CheckInPanel } from "@/components/CheckInPanel";
 import { requireStaff } from "@/lib/session";
 import { getRecentCheckIns } from "@/lib/queries";
-import { fixtureTitle } from "@/lib/format";
+import { scopeTitle } from "@/lib/format";
 import { TICKET_TYPE_LABELS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export default async function CheckInPage() {
           <p className="text-sm text-neutral-500">No one checked in yet.</p>
         ) : (
           <ul className="space-y-2">
-            {recent.map(({ application: app, match }) => (
+            {recent.map(({ application: app, match, season }) => (
               <li
                 key={app.id}
                 className="rounded-lg border border-black/10 bg-white px-4 py-2 text-sm dark:border-white/10 dark:bg-neutral-900"
@@ -41,7 +41,7 @@ export default async function CheckInPage() {
                   </span>
                 </div>
                 <p className="text-xs text-neutral-500">
-                  {fixtureTitle(match.team1, match.team2)}
+                  {scopeTitle(match, season)}
                 </p>
               </li>
             ))}

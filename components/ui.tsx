@@ -189,10 +189,14 @@ export function FormError({ message }: { message?: string }) {
   );
 }
 
-export function MatchSelect({
+export function ScopeSelect({
+  name,
+  placeholder,
   options,
   selectedId,
 }: {
+  name: string;
+  placeholder: string;
   options: { value: number; label: string; disabled?: boolean }[];
   selectedId?: number;
 }) {
@@ -202,13 +206,13 @@ export function MatchSelect({
       : "";
   return (
     <select
-      name="matchId"
+      name={name}
       required
       defaultValue={preselect}
       className={inputClass}
     >
       <option value="" disabled>
-        Select a match…
+        {placeholder}
       </option>
       {options.map((o) => (
         <option key={o.value} value={o.value} disabled={o.disabled}>
@@ -216,6 +220,23 @@ export function MatchSelect({
         </option>
       ))}
     </select>
+  );
+}
+
+export function MatchSelect({
+  options,
+  selectedId,
+}: {
+  options: { value: number; label: string; disabled?: boolean }[];
+  selectedId?: number;
+}) {
+  return (
+    <ScopeSelect
+      name="matchId"
+      placeholder="Select a match…"
+      options={options}
+      selectedId={selectedId}
+    />
   );
 }
 

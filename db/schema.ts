@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   integer,
   jsonb,
   pgEnum,
@@ -64,19 +65,42 @@ export const matches = pgTable("matches", {
     .defaultNow(),
 });
 
+export const seasons = pgTable("seasons", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const inventory = pgTable(
   "inventory",
   {
     id: serial("id").primaryKey(),
-    matchId: integer("match_id")
-      .notNull()
-      .references(() => matches.id, { onDelete: "cascade" }),
+    matchId: integer("match_id").references(() => matches.id, {
+      onDelete: "cascade",
+    }),
+    seasonId: integer("season_id").references(() => seasons.id, {
+      onDelete: "cascade",
+    }),
     type: ticketTypeEnum("type").notNull(),
     priceMinor: integer("price_minor").notNull().default(0),
     capacity: integer("capacity").notNull().default(0),
     sold: integer("sold").notNull().default(0),
   },
-  (t) => [unique("inventory_match_type").on(t.matchId, t.type)],
+  (t) => [
+    unique("inventory_match_type").on(t.matchId, t.type),
+    uniqueIndex("inventory_season_type")
+      .on(t.seasonId, t.type)
+      .where(sql`season_id is not null`),
+    check(
+      "inventory_scope",
+      sql`(match_id is not null) <> (season_id is not null)`,
+    ),
+  ],
 );
 
 export const applications = pgTable(
@@ -84,9 +108,8 @@ export const applications = pgTable(
   {
   id: uuid("id").primaryKey().defaultRandom(),
   type: ticketTypeEnum("type").notNull(),
-  matchId: integer("match_id")
-    .notNull()
-    .references(() => matches.id),
+  matchId: integer("match_id").references(() => matches.id),
+  seasonId: integer("season_id").references(() => seasons.id),
   phone: text("phone").notNull(),
   // Asked for explicitly: porting makes prefix detection unreliable.
   momoNetwork: text("momo_network"),
@@ -110,8 +133,17 @@ export const applications = pgTable(
     uniqueIndex("uniq_active_application")
       .on(t.phone, t.matchId, t.type)
       .where(
-        sql`status in ('otp_verified','awaiting_review','approved','awaiting_payment','paid','checked_in')`,
+        sql`match_id is not null and status in ('otp_verified','awaiting_review','approved','awaiting_payment','paid','checked_in')`,
       ),
+    uniqueIndex("uniq_active_season_application")
+      .on(t.phone, t.seasonId, t.type)
+      .where(
+        sql`season_id is not null and status in ('otp_verified','awaiting_review','approved','awaiting_payment','paid','checked_in')`,
+      ),
+    check(
+      "application_scope",
+      sql`(match_id is not null) <> (season_id is not null)`,
+    ),
   ],
 );
 
@@ -194,6 +226,7 @@ export const competitions = pgTable("competitions", {
 export type TicketType = (typeof ticketTypeEnum.enumValues)[number];
 export type ApplicationStatus = (typeof applicationStatusEnum.enumValues)[number];
 export type Match = typeof matches.$inferSelect;
+export type Season = typeof seasons.$inferSelect;
 export type Inventory = typeof inventory.$inferSelect;
 export type Application = typeof applications.$inferSelect;
 export type Staff = typeof staff.$inferSelect;
