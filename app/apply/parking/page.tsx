@@ -1,7 +1,6 @@
 import { Card, PageShell } from "@/components/ui";
 import { ParkingForm } from "@/components/forms/ParkingForm";
 import { getAvailableMatches } from "@/lib/queries";
-import { fixtureTitle, formatKickoff, formatMoney } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +13,13 @@ export default async function ParkingPage({
   const selectedId = match ? Number(match) : undefined;
   const matches = await getAvailableMatches("parking");
   const options = matches.map((m) => ({
-    value: m.id,
-    label:
-      `${m.competition ? m.competition + " · " : ""}${fixtureTitle(m.team1, m.team2)} — ${formatKickoff(m.kickoff)} · ${formatMoney(m.priceMinor)}` +
-      (m.remaining > 0 ? ` · ${m.remaining} left` : " · sold out"),
-    disabled: m.remaining <= 0,
+    id: m.id,
+    competition: m.competition,
+    team1: m.team1,
+    team2: m.team2,
+    kickoff: m.kickoff ? m.kickoff.toISOString() : null,
+    priceMinor: m.priceMinor,
+    remaining: m.remaining,
   }));
 
   return (

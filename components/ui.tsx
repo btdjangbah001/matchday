@@ -223,23 +223,6 @@ export function ScopeSelect({
   );
 }
 
-export function MatchSelect({
-  options,
-  selectedId,
-}: {
-  options: { value: number; label: string; disabled?: boolean }[];
-  selectedId?: number;
-}) {
-  return (
-    <ScopeSelect
-      name="matchId"
-      placeholder="Select a match…"
-      options={options}
-      selectedId={selectedId}
-    />
-  );
-}
-
 const pillStyles: Record<string, string> = {
   pending_otp: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   otp_verified: "bg-sky-500/15 text-sky-700 dark:text-sky-400",

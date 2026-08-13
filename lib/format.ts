@@ -54,6 +54,25 @@ export function scopeSubtitle(
   return "";
 }
 
+export function formatKickoffDay(kickoff: Date | null): string {
+  if (!kickoff) return "Date TBD";
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(kickoff);
+}
+
+export function formatKickoffTime(kickoff: Date | null): string {
+  if (!kickoff) return "Time TBD";
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  }).format(kickoff);
+}
+
 export function formatKickoff(kickoff: Date | null): string {
   if (!kickoff) return "Date TBD";
   return new Intl.DateTimeFormat("en-GB", {
