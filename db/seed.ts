@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { competitions, inventory, matches, seasons, staff } from "@/db/schema";
 import { DEFAULT_COMPETITIONS } from "@/lib/competitions";
 import { syncSchedules } from "@/lib/schedule";
+import { normalizePhone } from "@/lib/phone";
 
 // How many of the next upcoming fixtures to open for booking by default. Staff
 // curate the rest from the back office — a centre only screens a handful of the
@@ -21,13 +22,29 @@ async function main() {
   console.log(`  ${synced} fixtures across ${withData} competitions.`);
 
   console.log("Seeding staff allowlist...");
-  await db
-    .insert(staff)
-    .values([
-      { phone: "+233000000000", name: "Venue Admin", role: "admin" },
-      { phone: "+233000000000", name: "Venue Admin", role: "admin" },
-    ])
-    .onConflictDoNothing({ target: staff.phone });
+  // Staff phone numbers come from STAFF_PHONES (comma-separated) so personal
+  // numbers stay out of source control. Set it in .env locally and in the host
+  // environment. Each value is normalised to match how login looks numbers up.
+  const staffPhones = (process.env.STAFF_PHONES ?? "")
+    .split(",")
+    .map((s) => normalizePhone(s.trim()))
+    .filter((p): p is string => Boolean(p));
+
+  if (staffPhones.length > 0) {
+    await db
+      .insert(staff)
+      .values(
+        staffPhones.map((phone) => ({
+          phone,
+          name: "Venue Admin",
+          role: "admin",
+        })),
+      )
+      .onConflictDoNothing({ target: staff.phone });
+    console.log(`  ${staffPhones.length} staff on the allowlist.`);
+  } else {
+    console.warn("  STAFF_PHONES is not set — no staff seeded. Set it in .env.");
+  }
 
   console.log(`Opening the next ${DEFAULT_SCREENED} upcoming fixtures for booking...`);
   const upcoming = await db
